@@ -71,10 +71,11 @@ export function CasePanel() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !document.querySelector('.cds--modal.is-visible')) close();
+      if (e.key === 'Escape' && !document.querySelector('.cds--modal.is-visible') && !document.querySelector('.side-panel [role="menu"]')) close();
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    // capture phase: Carbon tooltips stop Escape from bubbling
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
   }, [close]);
 
   if (!id || !c) return null;
@@ -92,10 +93,10 @@ function PanelBody({ c, onClose }: { c: Case; onClose: () => void }) {
   const [dialog, setDialog] = useState<Dialog>(null);
   const [appNo, setAppNo] = useState(c.applicationNumber ?? '');
   const [tab, setTab] = useState(c.query ? 0 : 1);
-  const closeRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    closeRef.current?.focus();
+    panelRef.current?.focus();
   }, []);
 
   const readOnly = !bucketOpenFor(role, bucketOf(c));
@@ -119,8 +120,9 @@ function PanelBody({ c, onClose }: { c: Case; onClose: () => void }) {
   const done = () => setDialog(null);
 
   return (
-    <aside className="side-panel" role="dialog" aria-modal="true" aria-label={`Case ${c.id}, ${c.name}`}>
-      <div className="panel-head" style={{ position: 'relative' }}>
+    <aside ref={panelRef} tabIndex={-1} className="side-panel" role="dialog" aria-modal="true" aria-label={`Case ${c.id}, ${c.name}`}>
+      <div className="panel-head">
+        <div className="panel-head-main">
         <div className="panel-id">
           Case {c.id} · {BANKS[c.bank].label}
         </div>
@@ -138,7 +140,8 @@ function PanelBody({ c, onClose }: { c: Case; onClose: () => void }) {
           {c.stage === 'pre_compliance' && c.checks.pre && <Tag type="green">Pre-check passed</Tag>}
           {c.stage === 'post_compliance' && c.checks.post && <Tag type="green">Post-check passed</Tag>}
         </div>
-        <IconButton ref={closeRef} className="close-btn" kind="ghost" label="Close" align="left" onClick={onClose}>
+        </div>
+        <IconButton kind="ghost" label="Close (Esc)" align="left" onClick={onClose}>
           <Close />
         </IconButton>
       </div>

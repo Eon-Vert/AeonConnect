@@ -23,7 +23,12 @@ export function Shell() {
   const location = useLocation();
   const closePanel = useUi((s) => s.closePanel);
 
-  useEffect(() => closePanel(), [location.pathname, closePanel]);
+  useEffect(() => {
+    closePanel();
+    // collapse the hover-expanded nav after navigating (the pin keeps it open)
+    setHover(false);
+    (document.activeElement as HTMLElement | null)?.closest('.side-nav') && (document.activeElement as HTMLElement).blur();
+  }, [location.pathname, closePanel]);
   const togglePin = () => {
     setPinned((p) => {
       try {

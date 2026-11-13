@@ -124,9 +124,9 @@ export function AddLeadsFlow({ onBack, defaultBank = 'MAWARID' }: { onBack: () =
   const [mode, setMode] = useState<0 | 1>(0);
   return (
     <div className="upload-flow">
-      <Button kind="ghost" size="sm" className="back-link" renderIcon={ArrowLeft} onClick={onBack}>
-        Back
-      </Button>
+      <button className="link-btn back-link" onClick={onBack}>
+        <ArrowLeft size={16} /> Back
+      </button>
       <h1 style={{ fontSize: '1.75rem', fontWeight: 700, marginBottom: '1rem' }}>Add Leads</h1>
       <ContentSwitcher selectedIndex={mode} onChange={({ index }: { index?: number }) => setMode((index ?? 0) as 0 | 1)} size="md" style={{ maxWidth: '24rem' }}>
         <Switch name="bulk" text="Bulk file" />
@@ -192,10 +192,12 @@ function BulkFlow({ defaultBank }: { defaultBank: BankId }) {
       <div className="step-body">
         {step === 0 && (
           <>
-            <Select id="bulk-bank" labelText="Bank team" value={bank} onChange={(e) => setBank(e.target.value as BankId)} style={{ maxWidth: '20rem' }}>
-              <SelectItem value="MAWARID" text="Mawarid" />
-              <SelectItem value="DIB" text="DIB" />
-            </Select>
+            <div style={{ maxWidth: '20rem' }}>
+              <Select id="bulk-bank" labelText="Bank team" value={bank} onChange={(e) => setBank(e.target.value as BankId)}>
+                <SelectItem value="MAWARID" text="Mawarid" />
+                <SelectItem value="DIB" text="DIB" />
+              </Select>
+            </div>
             <div>
               <p className="cds--label">Lead file</p>
               <p className="helper-line">CSV or Excel, one lead per row. Columns: {TEMPLATE_COLS.join(', ')}.</p>

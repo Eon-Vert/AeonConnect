@@ -121,7 +121,7 @@ export function Pipeline() {
       />
 
       {canSeeArchived(role) && (
-        <Tabs selectedIndex={q.view === 'archived' ? 1 : 0} onChange={({ selectedIndex }: { selectedIndex: number }) => update({ view: selectedIndex === 1 ? 'archived' : 'all', bucket: 'all' })}>
+        <Tabs selectedIndex={q.view === 'archived' ? 1 : 0} onChange={({ selectedIndex }: { selectedIndex: number }) => update({ view: selectedIndex === 1 ? 'archived' : 'all', bucket: 'all', date: selectedIndex === 1 ? 'all' : DEFAULTS.date })}>
           <TabList aria-label="Pipeline views" style={{ marginBottom: '1.5rem' }}>
             <Tab>All cases</Tab>
             <Tab>Archived</Tab>
@@ -201,7 +201,7 @@ export function Pipeline() {
         </div>
       )}
 
-      <ListStates status={status} isEmpty={rows.length === 0} emptyText={q.view === 'archived' ? 'No archived cases match these filters.' : 'No cases match these filters.'} onRetry={retry} columns={7}>
+      <ListStates status={status} isEmpty={rows.length === 0} emptyText={`${q.view === 'archived' ? 'No archived cases match these filters.' : 'No cases match these filters.'}${q.date !== 'all' ? ` Only cases captured ${presetLabel(q.date)} are shown: try All time.` : ''}`} onRetry={retry} columns={7}>
         <CaseTable
           rows={rows}
           role={role}

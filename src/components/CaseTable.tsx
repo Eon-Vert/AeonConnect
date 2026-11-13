@@ -113,11 +113,11 @@ export function CaseTable({
   return (
     <>
       <div className="case-table-wrap" ref={wrapRef} tabIndex={0} onKeyDown={onKey} aria-label={`${ariaLabel}. Use up and down arrows to move, Enter to open.`}>
-        <Table size="lg" className={`case-table${columns.extra ? ' has-extra' : ''}`} aria-label={ariaLabel} useZebraStyles={false}>
+        <Table size="lg" className="case-table" aria-label={ariaLabel} useZebraStyles={false}>
           <TableHead>
             <TableRow>
               {anySelectable && (
-                <TableHeader style={{ width: 48 }}>
+                <TableHeader className="col-select">
                   <Checkbox
                     id={`${ariaLabel}-all`}
                     labelText="Select all dropped leads on this page"
@@ -129,23 +129,23 @@ export function CaseTable({
                   />
                 </TableHeader>
               )}
-              <TableHeader>Name</TableHeader>
-              {customColumn && <TableHeader>{customColumn.header}</TableHeader>}
-              {columns.bank && <TableHeader>Bank</TableHeader>}
-              {columns.qualify && <TableHeader>Salary</TableHeader>}
-              {columns.qualify && <TableHeader>Consent</TableHeader>}
-              <TableHeader>Product</TableHeader>
-              <TableHeader>With</TableHeader>
-              {columns.checkpoint && <TableHeader>Checkpoint</TableHeader>}
-              <TableHeader>Stage</TableHeader>
-              <TableHeader>Query</TableHeader>
-              <TableHeader>Updated</TableHeader>
+              <TableHeader className="col-name">Name</TableHeader>
+              {customColumn && <TableHeader className="col-custom">{customColumn.header}</TableHeader>}
+              {columns.bank && <TableHeader className="col-x">Bank</TableHeader>}
+              {columns.qualify && <TableHeader className="col-x">Salary</TableHeader>}
+              {columns.qualify && <TableHeader className="col-x">Consent</TableHeader>}
+              <TableHeader className="col-product">Product</TableHeader>
+              <TableHeader className="col-with">With</TableHeader>
+              {columns.checkpoint && <TableHeader className="col-x">Checkpoint</TableHeader>}
+              <TableHeader className="col-stage">Stage</TableHeader>
+              <TableHeader className="col-query">Query</TableHeader>
+              <TableHeader className="col-updated">Updated</TableHeader>
               {columns.extra && (
                 <>
-                  <TableHeader>Sales Officer</TableHeader>
-                  <TableHeader>Qualified by</TableHeader>
-                  <TableHeader>Journey start</TableHeader>
-                  <TableHeader>Hold kind</TableHeader>
+                  <TableHeader className="col-x">Sales Officer</TableHeader>
+                  <TableHeader className="col-x">Qualified by</TableHeader>
+                  <TableHeader className="col-x">Journey start</TableHeader>
+                  <TableHeader className="col-x">Hold kind</TableHeader>
                 </>
               )}
             </TableRow>

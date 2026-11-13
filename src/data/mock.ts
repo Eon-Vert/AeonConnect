@@ -134,7 +134,7 @@ function stageAgeHours(stage: StageId): number {
     case 'back_out':
     case 'ineligible':
     case 'dropped':
-      return between(24, 900);
+      return chance(0.45) ? between(12, 200) : between(200, 1100);
     default:
       return between(6, 160);
   }
@@ -234,8 +234,9 @@ function makeCase(bank: BankId, stage: StageId, opts: Plan[2], idx: number): Cas
   // walk backwards to place earlier stages
   const times: number[] = new Array(path.length);
   times[path.length - 1] = stageSince;
-  for (let i = path.length - 2; i >= 0; i--) times[i] = times[i + 1] - between(14, 110) * HOUR;
-  const capturedAt = times[0] - between(0.2, 30) * HOUR;
+  for (let i = path.length - 2; i >= 0; i--) times[i] = times[i + 1] - between(8, 52) * HOUR;
+  // some leads sat in the system for weeks before anyone worked them
+  const capturedAt = times[0] - (stage !== 'to_contact' && chance(0.5) ? between(6, 30) * DAY : between(0.2, 30) * HOUR);
 
   const journeyChosen = opts.journey || !['to_contact', 'contacted', 'eligible', 'ineligible', 'dropped'].includes(stage);
   const journey: Journey = journeyChosen ? (chance(0.18) ? 'self' : 'assisted') : 'none';
@@ -421,7 +422,11 @@ export function generate(): Dataset {
   if (a1150) a1150.checks.post = NOW - 2 * DAY - 3 * HOUR;
   swapId('A-1150', a1150);
   const a1088 = choose((c) => !!c.docRequestOpen);
+  if (a1088) a1088.query = undefined;
   swapId('A-1088', a1088);
+  if (a1150) a1150.query = undefined;
+  const a0981 = cases.find((c) => c.id === 'A-0981');
+  if (a0981) a0981.query = undefined;
 
   // SO-07: 9 company leads untouched over 72h
   const untouched = shuffle(mw.filter((c) => c.stage === 'to_contact' && !used.has(c))).slice(0, 9);
