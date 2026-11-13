@@ -9,6 +9,7 @@ import { CaseTable } from '../components/CaseTable';
 import { ListStates, PageHeader, useListStatus } from '../components/common';
 
 type TabIdx = 0 | 1 | 2 | 3;
+const MAX_SHOWN = 5;
 const TAB_NAMES = ['To Apply', 'To Submit', 'Application Status', 'Awaiting'];
 
 interface CoordTask {
@@ -144,11 +145,13 @@ export function CoordinatorMyDay() {
     else setPinnedKey(null);
   };
 
-  const shown = collapsed ? tasks.slice(0, 3) : tasks;
+  /** at most 5 at a time; skipped tasks leave the list (they stay in the queues below) */
+  const queue = tasks.filter((t) => !coordSkipped.includes(t.key) || t.key === pinnedKey);
+  const shown = queue.slice(0, collapsed ? 3 : MAX_SHOWN);
 
   return (
     <div className="page">
-      <PageHeader title="My Day" subtitle="Coordinator · Mawarid" right={<span className="desk-count">{tasks.length} recommended tasks</span>} />
+      <PageHeader title="My Day" subtitle="Coordinator · Mawarid" right={<span className="desk-count">{forceEmpty ? 0 : queue.length} recommended tasks</span>} />
 
       {pinned && (
         <div className="pinned-bar" role="region" aria-label="Current task">
@@ -175,11 +178,15 @@ export function CoordinatorMyDay() {
 
       <section className="rec-tasks" aria-labelledby="rec-title">
         <div className="rec-head">
-          <h2 id="rec-title">Recommended tasks</h2>
-          <span className="helper">Self cases first for filing, then open document requests, then oldest first</span>
+          <div>
+            <h2 id="rec-title">Recommended tasks</h2>
+            <span className="helper">
+              {shown.length} shown of {queue.length} · Self cases first for filing, then open document requests, then oldest first
+            </span>
+          </div>
           <span style={{ marginLeft: 'auto' }}>
-            <Button kind="ghost" size="sm" onClick={() => setCollapsed((c) => !c)} disabled={tasks.length <= 3}>
-              {collapsed ? `Show all ${tasks.length}` : 'Show top 3'}
+            <Button kind="ghost" size="sm" onClick={() => setCollapsed((c) => !c)} disabled={queue.length <= 3}>
+              {collapsed ? `Show top ${Math.min(MAX_SHOWN, queue.length)}` : 'Show top 3'}
             </Button>
           </span>
         </div>
@@ -195,7 +202,6 @@ export function CoordinatorMyDay() {
                   <span className="muted"> · {t.reason}</span>
                 </button>
                 {t.blocked && <Tag type="red" size="sm">Blocked</Tag>}
-                {coordSkipped.includes(t.key) && <Tag type="cool-gray" size="sm">Skipped</Tag>}
                 <Tag type="outline" size="sm">
                   {TAB_NAMES[t.tab]}
                 </Tag>
