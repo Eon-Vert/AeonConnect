@@ -87,10 +87,11 @@ body {
 
 /* --------------------------------------------------------------------- nav */
 .side-nav {
-  /* three steps, darkest = where you are: rail, open-group band, hover, selected */
-  --nav-sub-bg: #e8e8e8;
-  --nav-sub-hover: #dcdcdc;
-  --nav-selected: #c6c6c6;
+  /* primary-blue scale, strongest = where you are: open-group tint, hover tint, selected solid */
+  --nav-sub-bg: #edf5ff; /* blue 10 */
+  --nav-sub-hover: #d0e2ff; /* blue 20 */
+  --nav-selected: #{$interactive}; /* primary */
+  --nav-selected-edge: #0043ce; /* blue 70 */
   position: fixed;
   top: var(--header-h);
   bottom: 0;
@@ -156,9 +157,18 @@ body {
   .nav-item.is-active,
   &:not(.is-expanded) .nav-group-btn.has-active {
     background: var(--nav-selected);
-    color: $text-primary;
+    color: $text-on-color;
     font-weight: 600;
-    box-shadow: inset 3px 0 0 $interactive;
+    box-shadow: inset 3px 0 0 var(--nav-selected-edge);
+    &:hover {
+      background: var(--nav-selected-edge);
+      color: $text-on-color;
+    }
+    /* the usual blue focus ring would vanish on a blue row */
+    &:focus-visible {
+      outline: 2px solid $text-on-color;
+      outline-offset: -4px;
+    }
   }
   .nav-group-btn.has-active {
     color: $text-primary;
@@ -183,7 +193,7 @@ body {
       top: 0;
       bottom: 0.5rem;
       width: 1px;
-      background: #c6c6c6;
+      background: #a6c8ff; /* blue 30 */
     }
     .nav-item:hover:not(.is-active) {
       background: var(--nav-sub-hover);
@@ -217,6 +227,15 @@ body {
     border-radius: 50%;
     background: $interactive;
     box-shadow: 0 0 0 2px $layer-01;
+  }
+  /* on the blue selected row, the count and dot flip to white */
+  .nav-item.is-active .nav-count {
+    background: $text-on-color;
+    color: $interactive;
+  }
+  .nav-item.is-active .nav-dot {
+    background: $text-on-color;
+    box-shadow: 0 0 0 2px $interactive;
   }
   &.is-expanded .nav-dot {
     display: none;
