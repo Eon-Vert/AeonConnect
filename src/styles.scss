@@ -263,6 +263,12 @@ body {
     min-width: 10rem;
   }
 }
+.filter-check {
+  display: flex;
+  align-items: center;
+  height: 2.5rem;
+  white-space: nowrap;
+}
 .drill-tags {
   display: flex;
   gap: $spacing-03;

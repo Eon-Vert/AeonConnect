@@ -169,11 +169,14 @@ export function Pipeline() {
           selectedItem={SORTS.find((s) => s.id === q.sort)}
           onChange={({ selectedItem }) => selectedItem && update({ sort: selectedItem.id as SortId })}
         />
+        <div className="filter-check">
+          <Checkbox id="company-only" labelText="Company leads only" checked={q.company} onChange={(_, { checked }) => update({ company: checked })} />
+        </div>
       </div>
 
       {drill && (
         <div className="drill-tags">
-          <DismissibleTag type="blue" text={`Showing: ${drill}`} onClose={() => update({ company: false, reached: undefined, stage: undefined, journeyStarted: false, untouched72: false })} />
+          <DismissibleTag type="blue" text={`Showing: ${drill}`} onClose={() => update({ reached: undefined, stage: undefined, journeyStarted: false, untouched72: false })} />
         </div>
       )}
 

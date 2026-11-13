@@ -94,13 +94,13 @@ export function activeFilterCount(q: PipelineQuery): number {
   if (q.date !== DEFAULTS.date) n++;
   if (q.sort !== DEFAULTS.sort) n++;
   if (q.bucket !== 'all') n++;
-  if (q.company || q.reached || q.stage || q.journeyStarted || q.untouched72) n++;
+  if (q.company) n++;
+  if (q.reached || q.stage || q.journeyStarted || q.untouched72) n++;
   return n;
 }
 
 export function drillLabel(q: PipelineQuery): string | null {
   const parts: string[] = [];
-  if (q.company) parts.push('Company leads');
   if (q.reached) parts.push(`reached ${stageLabel(q.bank === 'DIB' ? 'DIB' : 'MAWARID', q.reached)}`);
   if (q.stage) parts.push(`at ${stageLabel(q.bank === 'DIB' ? 'DIB' : 'MAWARID', q.stage)}`);
   if (q.journeyStarted) parts.push('journey started');
