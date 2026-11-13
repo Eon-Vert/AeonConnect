@@ -1,14 +1,15 @@
-import { Button, Checkbox, IconButton, Modal } from '@carbon/react';
+import { Checkbox, IconButton, Modal } from '@carbon/react';
 import { ArrowDown, ArrowUp, Draggable, Locked } from '@carbon/icons-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Role } from '../domain/types';
 import { ROLE_LABEL } from '../domain/types';
 import { canSeeSalary } from '../domain/rules';
-import { MAIN_COLS, extraLabel, isDefaultPrefs, type ColumnPrefs, type ExtraCol } from '../domain/columns';
+import { MAIN_COLS, extraLabel, type ColumnPrefs, type ExtraCol } from '../domain/columns';
 
 /**
  * Show, hide and reorder the extra Pipeline columns. Drag to reorder, or use Move up / Move down
- * from the keyboard. Changes apply at once and are saved for this role on this device only.
+ * from the keyboard. Changes preview in the table at once; Done keeps them, Cancel (or the X) puts
+ * back the layout from when the dialog opened. Saved for this role on this device only.
  */
 export function ColumnsPanel({
   open,
@@ -29,6 +30,16 @@ export function ColumnsPanel({
   const [over, setOver] = useState<ExtraCol | null>(null);
   const [announce, setAnnounce] = useState('');
   const order = prefs.order;
+  // the layout as it was when the dialog opened, for Cancel
+  const snapshot = useRef(prefs);
+  useEffect(() => {
+    if (open) snapshot.current = prefs;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+  const cancel = () => {
+    onChange(snapshot.current);
+    onClose();
+  };
 
   const move = (id: ExtraCol, to: number, how: 'keyboard' | 'drag') => {
     const from = order.indexOf(id);
@@ -51,8 +62,13 @@ export function ColumnsPanel({
       modalHeading="Columns"
       modalLabel="Pipeline"
       primaryButtonText="Done"
+      // standard Carbon three-button footer: Cancel and Reset on the left, Done on the right
+      secondaryButtons={[
+        { buttonText: 'Cancel', onClick: cancel },
+        { buttonText: 'Reset to default', onClick: onReset },
+      ]}
       onRequestSubmit={onClose}
-      onRequestClose={onClose}
+      onRequestClose={cancel}
       size="md"
       className="columns-panel"
     >
@@ -124,9 +140,6 @@ export function ColumnsPanel({
       <div className="sr-only" aria-live="polite">
         {announce}
       </div>
-      <Button kind="ghost" size="sm" onClick={onReset} disabled={isDefaultPrefs(prefs)} style={{ marginTop: '0.75rem' }}>
-        Reset to default
-      </Button>
     </Modal>
   );
 }

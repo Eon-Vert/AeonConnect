@@ -1,5 +1,5 @@
 import { Button, Checkbox, DatePicker, DatePickerInput, DismissibleTag, Dropdown, IconButton, Search } from '@carbon/react';
-import { Add, ChevronDown, Renew, Settings } from '@carbon/icons-react';
+import { Add, ChevronDown, Filter, Renew, Settings } from '@carbon/icons-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { BucketId, Case } from '../domain/types';
@@ -13,10 +13,11 @@ import {
   canSeeArchived,
   MSG,
   HOLD_KINDS,
+  holdLabel,
 } from '../domain/rules';
 import { bucketColumns, clearPrefs, columnLayout, DEFAULT_PREFS, isDefaultPrefs, loadPrefs, savePrefs, type ColumnPrefs } from '../domain/columns';
 import { ColumnsPanel } from '../components/ColumnsPanel';
-import { DATE_PRESETS, presetLabel, type DatePreset } from '../domain/time';
+import { DATE_PRESETS, fmtShortDate, presetLabel, type DatePreset } from '../domain/time';
 import {
   activeFilterCount,
   baseFilter,
@@ -126,14 +127,16 @@ export function Pipeline() {
         }
       />
 
-      {canSeeArchived(role) && (
+      {/* house list pattern (doc 09 §3): views on the left, Filters at the right end of the tabs */}
+      <div className="tabs-row">
         <PlainTabs
           label="Pipeline views"
-          tabs={['All cases', 'Archived']}
+          tabs={canSeeArchived(role) ? ['All cases', 'Archived'] : ['All cases']}
           selected={q.view === 'archived' ? 1 : 0}
           onChange={(i) => update({ view: i === 1 ? 'archived' : 'all', bucket: 'all', date: i === 1 ? 'all' : DEFAULTS.date })}
         />
-      )}
+        <FiltersButton q={q} update={update} />
+      </div>
 
       <div className="filter-row">
         <Dropdown
@@ -175,35 +178,18 @@ export function Pipeline() {
           selectedItem={SORTS.find((s) => s.id === q.sort)}
           onChange={({ selectedItem }) => selectedItem && update({ sort: selectedItem.id as SortId })}
         />
-        <Dropdown
-          id="hold-kind"
-          titleText="Hold kind"
-          label="Any hold"
-          size="md"
-          items={HOLD_ITEMS}
-          itemToString={(i) => i?.label ?? ''}
-          selectedItem={HOLD_ITEMS.find((h) => h.id === q.hold)}
-          onChange={({ selectedItem }) => update({ hold: (selectedItem?.id ?? '') as PipelineQuery['hold'] })}
-        />
-        <Dropdown
-          id="query-status"
-          titleText="Query"
-          label="Any query state"
-          size="md"
-          items={QUERY_STATUSES}
-          itemToString={(i) => i?.label ?? ''}
-          selectedItem={QUERY_STATUSES.find((x) => x.id === q.queryStatus)}
-          onChange={({ selectedItem }) => update({ queryStatus: selectedItem?.id ?? '' })}
-        />
-        <JourneyFilter q={q} update={update} />
-        <div className="filter-check">
-          <Checkbox id="company-only" labelText="Company leads only" checked={q.company} onChange={(_, { checked }) => update({ company: checked })} />
-        </div>
       </div>
 
-      {drill && (
+      {/* what's set inside the Filters panel stays visible here, one removable tag each */}
+      {(drill || q.company || q.hold || q.queryStatus || (q.jFrom && q.jTo)) && (
         <div className="drill-tags">
-          <DismissibleTag type="blue" text={`Showing: ${drill}`} onClose={() => update({ reached: undefined, stage: undefined, journeyStarted: false, untouched72: false })} />
+          {drill && <DismissibleTag type="blue" text={`Showing: ${drill}`} onClose={() => update({ reached: undefined, stage: undefined, journeyStarted: false, untouched72: false })} />}
+          {q.company && <DismissibleTag type="gray" text="Company leads only" onClose={() => update({ company: false })} />}
+          {q.hold && <DismissibleTag type="gray" text={`Hold: ${holdLabel(q.hold)}`} onClose={() => update({ hold: '' })} />}
+          {q.queryStatus && <DismissibleTag type="gray" text={`Query: ${QUERY_STATUSES.find((x) => x.id === q.queryStatus)!.label}`} onClose={() => update({ queryStatus: '' })} />}
+          {q.jFrom && q.jTo && (
+            <DismissibleTag type="gray" text={`Journey start: ${fmtShortDate(q.jFrom)} – ${fmtShortDate(q.jTo)}`} onClose={() => update({ jFrom: undefined, jTo: undefined })} />
+          )}
         </div>
       )}
 
@@ -442,6 +428,72 @@ function ColumnSettings({
         </div>
       )}
     </span>
+  );
+}
+
+/** count of the filters that live inside the Filters panel */
+const panelFilterCount = (q: PipelineQuery) => [q.company, q.hold, q.queryStatus, q.jFrom && q.jTo].filter(Boolean).length;
+
+function FiltersButton({ q, update }: { q: PipelineQuery; update: (p: Partial<PipelineQuery>) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const n = panelFilterCount(q);
+  useEffect(() => {
+    if (!open) return;
+    // the date picker's calendar and dropdown menus render outside the panel: clicks there don't close it
+    const h = (e: MouseEvent) => {
+      const t = e.target as HTMLElement;
+      if (ref.current?.contains(t) || t.closest('.flatpickr-calendar')) return;
+      setOpen(false);
+    };
+    const k = (e: KeyboardEvent) => e.key === 'Escape' && !document.querySelector('.flatpickr-calendar.open') && setOpen(false);
+    document.addEventListener('mousedown', h);
+    document.addEventListener('keydown', k);
+    return () => {
+      document.removeEventListener('mousedown', h);
+      document.removeEventListener('keydown', k);
+    };
+  }, [open]);
+  return (
+    <div className="filters-anchor" ref={ref}>
+      <Button kind="ghost" size="md" renderIcon={Filter} onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-controls="filters-panel" className="filters-btn">
+        Filters{n ? ` (${n})` : ''}
+      </Button>
+      {open && (
+        <div id="filters-panel" className="filters-panel" role="dialog" aria-label="Filters">
+          <Dropdown
+            id="hold-kind"
+            titleText="Hold kind"
+            label="Any hold"
+            size="md"
+            items={HOLD_ITEMS}
+            itemToString={(i) => i?.label ?? ''}
+            selectedItem={HOLD_ITEMS.find((h) => h.id === q.hold)}
+            onChange={({ selectedItem }) => update({ hold: (selectedItem?.id ?? '') as PipelineQuery['hold'] })}
+          />
+          <Dropdown
+            id="query-status"
+            titleText="Query"
+            label="Any query state"
+            size="md"
+            items={QUERY_STATUSES}
+            itemToString={(i) => i?.label ?? ''}
+            selectedItem={QUERY_STATUSES.find((x) => x.id === q.queryStatus)}
+            onChange={({ selectedItem }) => update({ queryStatus: selectedItem?.id ?? '' })}
+          />
+          <JourneyFilter q={q} update={update} />
+          <Checkbox id="company-only" labelText="Company leads only" checked={q.company} onChange={(_, { checked }) => update({ company: checked })} />
+          <div className="filters-panel-foot">
+            <Button kind="ghost" size="sm" disabled={!n} onClick={() => update({ company: false, hold: '', queryStatus: '', jFrom: undefined, jTo: undefined })}>
+              Clear these filters
+            </Button>
+            <Button kind="primary" size="sm" onClick={() => setOpen(false)}>
+              Done
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

@@ -377,13 +377,53 @@ body {
   align-items: flex-end;
   margin-bottom: $spacing-05;
   .cds--search {
-    min-width: 16rem;
-    flex: 1 1 16rem;
+    min-width: 11rem;
+    flex: 1 1 11rem;
   }
   .cds--dropdown__wrapper,
   .cds--list-box__wrapper {
     min-width: 10rem;
   }
+}
+.tabs-row {
+  display: flex;
+  align-items: flex-end;
+  border-bottom: 1px solid $border-subtle-01;
+  margin-bottom: $spacing-05;
+  .plain-tabs {
+    border-bottom: 0;
+    margin-bottom: 0;
+  }
+}
+.filters-anchor {
+  position: relative;
+  margin-left: auto;
+}
+.filters-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 60;
+  width: 24rem;
+  padding: $spacing-05;
+  background: $layer-01;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-05;
+  .cds--date-picker--range {
+    display: flex;
+    gap: $spacing-03;
+  }
+  .cds--date-picker--range .cds--date-picker__input {
+    width: 100%;
+  }
+}
+.filters-panel-foot {
+  display: flex;
+  justify-content: space-between;
+  border-top: 1px solid $border-subtle-01;
+  padding-top: $spacing-04;
 }
 .table-toolbar {
   justify-content: space-between;
@@ -417,6 +457,18 @@ body {
   white-space: nowrap;
 }
 .columns-panel {
+  /* size to the content: the list fills the dialog instead of scrolling in a short box */
+  .cds--modal-container {
+    height: auto;
+    max-height: 92vh;
+  }
+  .cds--modal-content {
+    margin-bottom: 0;
+    padding-bottom: $spacing-06;
+  }
+  .cds--modal-content--overflow-indicator {
+    display: none;
+  }
   .cols-heading {
     font-size: 0.875rem;
     font-weight: 600;
