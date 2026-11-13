@@ -37,13 +37,37 @@ body {
   height: var(--header-h);
   display: flex;
   align-items: center;
-  padding: 0 $spacing-05 0 calc(var(--nav-collapsed) + #{$spacing-05});
+  padding: 0 $spacing-05 0 0;
   background: #161616;
   color: #f4f4f4;
   z-index: 8000;
   border-bottom: 1px solid #393939;
   font-size: 0.875rem;
   gap: $spacing-03;
+  /* menu button sits exactly over the rail, so the brand lines up with page content */
+  .nav-toggle {
+    width: var(--nav-collapsed);
+    height: var(--header-h);
+    margin-right: $spacing-03;
+    border-radius: 0;
+    color: #f4f4f4;
+    svg {
+      fill: #f4f4f4;
+    }
+    &:hover {
+      background: #353535;
+    }
+    /* keyboard focus only: a mouse click leaves no ring behind */
+    &:focus {
+      outline: none;
+      border-color: transparent;
+      box-shadow: none;
+    }
+    &:focus-visible {
+      outline: 2px solid #ffffff;
+      outline-offset: -2px;
+    }
+  }
   .brand {
     font-weight: 700;
     letter-spacing: 0.01em;
@@ -68,44 +92,41 @@ body {
   bottom: 0;
   left: 0;
   width: var(--nav-collapsed);
+  padding: $spacing-03 0 5rem;
   background: $layer-01;
   border-right: 1px solid $border-subtle-01;
   z-index: 7000;
-  transition: width 110ms cubic-bezier(0.2, 0, 0.38, 0.9), box-shadow 110ms;
+  transition: width 140ms cubic-bezier(0.2, 0, 0.38, 0.9), box-shadow 140ms;
   overflow-x: hidden;
   overflow-y: auto;
-  display: flex;
-  flex-direction: column;
   &.is-expanded {
     width: var(--nav-expanded);
   }
   &.is-hover:not(.is-pinned) {
-    box-shadow: 4px 0 12px rgba(0, 0, 0, 0.12);
+    box-shadow: 6px 0 16px rgba(0, 0, 0, 0.14);
   }
-  .nav-pin-row {
-    display: flex;
-    justify-content: flex-end;
-    padding: $spacing-02;
-    min-height: 2.5rem;
+
+  .nav-list > li + li {
+    margin-top: 2px;
   }
   .nav-item,
   .nav-group-btn {
+    position: relative;
     display: flex;
     align-items: center;
-    gap: $spacing-05;
     width: 100%;
     height: 2.5rem;
-    padding: 0 $spacing-05 0 0.875rem;
+    padding: 0 $spacing-05 0 0;
     color: $text-secondary;
     background: none;
     border: 0;
     text-decoration: none;
     font-size: 0.875rem;
-    font-weight: 600;
+    font-weight: 500;
     cursor: pointer;
     white-space: nowrap;
     text-align: left;
-    border-left: 3px solid transparent;
+    transition: background 70ms, color 70ms;
     &:hover {
       background: $layer-hover-01;
       color: $text-primary;
@@ -119,24 +140,81 @@ body {
       fill: currentColor;
     }
   }
-  .nav-item.is-active {
+  /* icons sit centred in the 48px rail whether or not the nav is open */
+  .nav-icon {
+    position: relative;
+    flex: none;
+    width: var(--nav-collapsed);
+    display: flex;
+    justify-content: center;
+  }
+  /* active page: selected fill plus an accent bar on the leading edge */
+  .nav-item.is-active,
+  &:not(.is-expanded) .nav-group-btn.has-active {
     background: $layer-selected-01;
     color: $text-primary;
-    border-left-color: $interactive;
+    font-weight: 600;
+    box-shadow: inset 3px 0 0 $interactive;
   }
-  .nav-sub .nav-item {
-    padding-left: 3.25rem;
-    font-weight: 500;
+  .nav-group-btn.has-active {
+    color: $text-primary;
+    font-weight: 600;
   }
   .nav-group-btn .chev {
     margin-left: auto;
-    transition: transform 110ms;
+    transition: transform 140ms;
   }
   .nav-group-btn.is-open .chev {
     transform: rotate(180deg);
   }
+  /* child pages hang off a guide line under their group's icon */
+  .nav-sub {
+    position: relative;
+    &::before {
+      content: '';
+      position: absolute;
+      left: calc(var(--nav-collapsed) / 2);
+      top: 0;
+      bottom: 0.5rem;
+      width: 1px;
+      background: $border-subtle-01;
+    }
+    .nav-item {
+      height: 2.25rem;
+      padding-left: var(--nav-collapsed);
+      font-size: 0.8125rem;
+    }
+  }
+  .nav-count {
+    margin-left: auto;
+    min-width: 1.5rem;
+    padding: 0 0.4rem;
+    border-radius: 0.75rem;
+    background: $interactive;
+    color: $text-on-color;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    line-height: 1.25rem;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+  /* collapsed rail: the count becomes a dot on the My Day icon */
+  .nav-dot {
+    position: absolute;
+    top: -2px;
+    right: 0.75rem;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: $interactive;
+    box-shadow: 0 0 0 2px $layer-01;
+  }
+  &.is-expanded .nav-dot {
+    display: none;
+  }
   &:not(.is-expanded) .nav-label,
   &:not(.is-expanded) .chev,
+  &:not(.is-expanded) .nav-count,
   &:not(.is-expanded) .nav-sub {
     display: none;
   }
@@ -208,6 +286,11 @@ body {
   left: calc(var(--nav-collapsed) + #{$spacing-04});
   bottom: $spacing-05;
   z-index: 9000;
+  transition: left 140ms cubic-bezier(0.2, 0, 0.38, 0.9);
+  /* slide clear of the nav when it is open, so nothing in it is covered */
+  .app-shell.nav-open & {
+    left: calc(var(--nav-expanded) + #{$spacing-04});
+  }
   .role-btn {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   }

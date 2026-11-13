@@ -45,7 +45,7 @@ function whyNotReady(c: Case): string {
   return '—';
 }
 
-function buildTasks(cases: Case[]): CoordTask[] {
+export function buildTasks(cases: Case[]): CoordTask[] {
   const out: CoordTask[] = [];
   for (const c of cases) {
     const blocked = hasOpenCustomerQuery(c) ? 'Blocked: open customer query. Close it before acting.' : null;

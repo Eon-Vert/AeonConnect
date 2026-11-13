@@ -29,7 +29,7 @@ const PRODUCTS: Opt[] = [
 ];
 
 /** My Day is the Mawarid desk (the header says so); DIB has no Pre-Compliance stage */
-const isToCheck = (c: Case) => c.bank === 'MAWARID' && !c.archived && ((c.stage === 'pre_compliance' && !c.checks.pre) || (c.stage === 'post_compliance' && !c.checks.post));
+export const isToCheck = (c: Case) => c.bank === 'MAWARID' && !c.archived && ((c.stage === 'pre_compliance' && !c.checks.pre) || (c.stage === 'post_compliance' && !c.checks.post));
 /** checked by compliance and still sitting at that checkpoint, or passed recently */
 const isChecked = (c: Case) => c.bank === 'MAWARID' && !c.archived && !isToCheck(c) && (!!c.checks.pre || !!c.checks.post) && !['booked', 'declined', 'back_out'].includes(c.stage);
 

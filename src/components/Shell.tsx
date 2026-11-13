@@ -1,12 +1,14 @@
 import { Button, IconButton, RadioButton, RadioButtonGroup, ToastNotification } from '@carbon/react';
-import { Checkmark, ChevronDown, Pin, PinFilled, UserAvatar } from '@carbon/icons-react';
-import { useEffect, useRef, useState } from 'react';
+import { Checkmark, ChevronDown, Close, Menu, UserAvatar } from '@carbon/icons-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { NavLink as RouterLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { ROLE_LABEL, type Role } from '../domain/types';
 import { NAV, isGroup, type NavGroup } from '../nav';
 import { useStore, type ListMode } from '../state/store';
 import { useUi } from '../state/ui';
 import { CasePanel } from './CasePanel';
+import { buildTasks } from '../pages/CoordinatorMyDay';
+import { isToCheck } from '../pages/ComplianceMyDay';
 
 const PIN_KEY = 'aeon-nav-pinned';
 function readPin() {
@@ -17,11 +19,26 @@ function readPin() {
   }
 }
 
+/** the number shown on My Day in the nav: the same count each role's My Day leads with */
+function useMyDayCount(role: Role): number {
+  const deskTasks = useStore((s) => s.deskTasks);
+  const cases = useStore((s) => s.cases);
+  const coordDone = useStore((s) => s.coordDone);
+  const coordSkipped = useStore((s) => s.coordSkipped);
+  return useMemo(() => {
+    if (role === 'SM') return deskTasks.filter((t) => !t.doneAt).length;
+    if (role === 'COORD') return buildTasks(cases).filter((t) => !coordDone.includes(t.key) && !coordSkipped.includes(t.key)).length;
+    return cases.filter(isToCheck).length;
+  }, [role, deskTasks, cases, coordDone, coordSkipped]);
+}
+const MY_DAY_COUNT_LABEL: Record<Role, string> = { SM: 'tasks on your desk', COORD: 'recommended tasks', CO: 'cases to check' };
+
 export function Shell() {
   const [pinned, setPinned] = useState(readPin);
   const [hover, setHover] = useState(false);
   const location = useLocation();
   const closePanel = useUi((s) => s.closePanel);
+  const expanded = pinned || hover;
 
   useEffect(() => {
     closePanel();
@@ -38,38 +55,53 @@ export function Shell() {
       }
       return !p;
     });
+    setHover(false);
   };
 
   return (
-    <>
+    <div className={`app-shell${expanded ? ' nav-open' : ''}`}>
       <header className="app-header">
+        <IconButton
+          className="nav-toggle"
+          kind="ghost"
+          size="lg"
+          label={pinned ? 'Collapse navigation' : 'Keep navigation open'}
+          align="right"
+          aria-expanded={pinned}
+          aria-controls="main-nav"
+          onClick={togglePin}
+        >
+          {pinned ? <Close size={20} /> : <Menu size={20} />}
+        </IconButton>
         <span className="brand">AEON Connect</span>
         <span className="brand-sep">|</span>
         <span className="brand-team">Mawarid</span>
         <span className="header-right">Dubai time · Fri 13 Nov 2026, 10:30</span>
       </header>
-      <SideNav expanded={pinned || hover} pinned={pinned} hover={hover} setHover={setHover} onPin={togglePin} />
+      <SideNav expanded={expanded} pinned={pinned} hover={hover} setHover={setHover} />
       <main className={`app-main${pinned ? ' nav-pinned' : ''}`}>
         <Outlet />
       </main>
       <CasePanel />
       <RoleSwitcher />
       <ToastHost />
-    </>
+    </div>
   );
 }
 
-function SideNav({ expanded, pinned, hover, setHover, onPin }: { expanded: boolean; pinned: boolean; hover: boolean; setHover: (h: boolean) => void; onPin: () => void }) {
+function SideNav({ expanded, pinned, hover, setHover }: { expanded: boolean; pinned: boolean; hover: boolean; setHover: (h: boolean) => void }) {
   const role = useStore((s) => s.role);
   const [closed, setClosed] = useState<string[]>([]);
   const timer = useRef<number>();
+  const count = useMyDayCount(role);
   return (
     <nav
+      id="main-nav"
       className={`side-nav${expanded ? ' is-expanded' : ''}${pinned ? ' is-pinned' : ''}${hover ? ' is-hover' : ''}`}
       aria-label="Main navigation"
       onMouseEnter={() => {
         window.clearTimeout(timer.current);
-        timer.current = window.setTimeout(() => setHover(true), 80);
+        timer.current = window.setTimeout(() => setHover(true), 120);
       }}
       onMouseLeave={() => {
         window.clearTimeout(timer.current);
@@ -78,22 +110,33 @@ function SideNav({ expanded, pinned, hover, setHover, onPin }: { expanded: boole
       onFocus={() => setHover(true)}
       onBlur={(e) => !e.currentTarget.contains(e.relatedTarget as Node) && setHover(false)}
     >
-      <div className="nav-pin-row">
-        {expanded && (
-          <IconButton kind="ghost" size="sm" label={pinned ? 'Unpin navigation' : 'Pin navigation open'} align="right" onClick={onPin}>
-            {pinned ? <PinFilled /> : <Pin />}
-          </IconButton>
-        )}
-      </div>
-      <ul>
+      <ul className="nav-list">
         {NAV[role].map((e) =>
           isGroup(e) ? (
-            <Group key={e.label} g={e} open={!closed.includes(e.label)} toggle={() => setClosed((c) => (c.includes(e.label) ? c.filter((x) => x !== e.label) : [...c, e.label]))} />
+            <Group
+              key={e.label}
+              g={e}
+              open={!closed.includes(e.label)}
+              expanded={expanded}
+              toggle={() => setClosed((c) => (c.includes(e.label) ? c.filter((x) => x !== e.label) : [...c, e.label]))}
+            />
           ) : (
             <li key={e.to}>
-              <RouterLink to={e.to} className={({ isActive }) => `nav-item${isActive ? ' is-active' : ''}`} title={expanded ? undefined : e.label}>
-                <e.icon size={20} aria-hidden />
+              <RouterLink
+                to={e.to}
+                className={({ isActive }) => `nav-item${isActive ? ' is-active' : ''}`}
+                title={expanded ? undefined : e.to === '/my-day' ? `My Day · ${count} ${MY_DAY_COUNT_LABEL[role]}` : e.label}
+              >
+                <span className="nav-icon">
+                  <e.icon size={20} aria-hidden />
+                  {e.to === '/my-day' && count > 0 && <span className="nav-dot" aria-hidden />}
+                </span>
                 <span className="nav-label">{e.label}</span>
+                {e.to === '/my-day' && count > 0 && (
+                  <span className="nav-count" aria-label={`${count} ${MY_DAY_COUNT_LABEL[role]}`}>
+                    {count}
+                  </span>
+                )}
               </RouterLink>
             </li>
           ),
@@ -103,11 +146,21 @@ function SideNav({ expanded, pinned, hover, setHover, onPin }: { expanded: boole
   );
 }
 
-function Group({ g, open, toggle }: { g: NavGroup; open: boolean; toggle: () => void }) {
+function Group({ g, open, expanded, toggle }: { g: NavGroup; open: boolean; expanded: boolean; toggle: () => void }) {
+  const { pathname } = useLocation();
+  const childActive = g.children.some((c) => pathname === c.to);
+  const activeChild = g.children.find((c) => pathname === c.to);
   return (
-    <li>
-      <button className={`nav-group-btn${open ? ' is-open' : ''}`} aria-expanded={open} onClick={toggle} title={g.label}>
-        <g.icon size={20} aria-hidden />
+    <li className="nav-group">
+      <button
+        className={`nav-group-btn${open ? ' is-open' : ''}${childActive ? ' has-active' : ''}`}
+        aria-expanded={open}
+        onClick={toggle}
+        title={expanded ? undefined : activeChild ? `${g.label} › ${activeChild.label}` : g.label}
+      >
+        <span className="nav-icon">
+          <g.icon size={20} aria-hidden />
+        </span>
         <span className="nav-label">{g.label}</span>
         <ChevronDown size={16} className="chev" aria-hidden />
       </button>
