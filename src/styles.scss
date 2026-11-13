@@ -87,6 +87,10 @@ body {
 
 /* --------------------------------------------------------------------- nav */
 .side-nav {
+  /* three steps, darkest = where you are: rail, open-group band, hover, selected */
+  --nav-sub-bg: #e8e8e8;
+  --nav-sub-hover: #dcdcdc;
+  --nav-selected: #c6c6c6;
   position: fixed;
   top: var(--header-h);
   bottom: 0;
@@ -151,7 +155,7 @@ body {
   /* active page: selected fill plus an accent bar on the leading edge */
   .nav-item.is-active,
   &:not(.is-expanded) .nav-group-btn.has-active {
-    background: $layer-selected-01;
+    background: var(--nav-selected);
     color: $text-primary;
     font-weight: 600;
     box-shadow: inset 3px 0 0 $interactive;
@@ -170,6 +174,8 @@ body {
   /* child pages hang off a guide line under their group's icon */
   .nav-sub {
     position: relative;
+    background: var(--nav-sub-bg);
+    padding-block: 2px;
     &::before {
       content: '';
       position: absolute;
@@ -177,7 +183,10 @@ body {
       top: 0;
       bottom: 0.5rem;
       width: 1px;
-      background: $border-subtle-01;
+      background: #c6c6c6;
+    }
+    .nav-item:hover:not(.is-active) {
+      background: var(--nav-sub-hover);
     }
     .nav-item {
       height: 2.25rem;
