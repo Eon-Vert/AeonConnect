@@ -91,7 +91,8 @@ export function Shell() {
 
 function SideNav({ expanded, pinned, hover, setHover }: { expanded: boolean; pinned: boolean; hover: boolean; setHover: (h: boolean) => void }) {
   const role = useStore((s) => s.role);
-  const [closed, setClosed] = useState<string[]>([]);
+  // only one group is open at a time: the one under the pointer (or holding keyboard focus)
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
   const timer = useRef<number>();
   const count = useMyDayCount(role);
   return (
@@ -106,6 +107,7 @@ function SideNav({ expanded, pinned, hover, setHover }: { expanded: boolean; pin
       onMouseLeave={() => {
         window.clearTimeout(timer.current);
         setHover(false);
+        setOpenGroup(null);
       }}
       onFocus={() => setHover(true)}
       onBlur={(e) => !e.currentTarget.contains(e.relatedTarget as Node) && setHover(false)}
@@ -113,13 +115,7 @@ function SideNav({ expanded, pinned, hover, setHover }: { expanded: boolean; pin
       <ul className="nav-list">
         {NAV[role].map((e) =>
           isGroup(e) ? (
-            <Group
-              key={e.label}
-              g={e}
-              open={!closed.includes(e.label)}
-              expanded={expanded}
-              toggle={() => setClosed((c) => (c.includes(e.label) ? c.filter((x) => x !== e.label) : [...c, e.label]))}
-            />
+            <Group key={e.label} g={e} open={expanded && openGroup === e.label} expanded={expanded} setOpen={(o) => setOpenGroup((cur) => (o ? e.label : cur === e.label ? null : cur))} />
           ) : (
             <li key={e.to}>
               <RouterLink
@@ -146,22 +142,46 @@ function SideNav({ expanded, pinned, hover, setHover }: { expanded: boolean; pin
   );
 }
 
-function Group({ g, open, expanded, toggle }: { g: NavGroup; open: boolean; expanded: boolean; toggle: () => void }) {
+function Group({ g, open, expanded, setOpen }: { g: NavGroup; open: boolean; expanded: boolean; setOpen: (open: boolean) => void }) {
   const { pathname } = useLocation();
-  const childActive = g.children.some((c) => pathname === c.to);
   const activeChild = g.children.find((c) => pathname === c.to);
+  const hoverTimer = useRef<number>();
+  /** a click closed it while the pointer is still on it: don't let hover reopen it */
+  const closedByClick = useRef(false);
+  useEffect(() => () => window.clearTimeout(hoverTimer.current), []);
   return (
-    <li className="nav-group">
+    <li
+      className="nav-group"
+      // a short delay so sweeping the pointer down the list doesn't open every group in turn
+      onMouseEnter={() => {
+        window.clearTimeout(hoverTimer.current);
+        hoverTimer.current = window.setTimeout(() => !closedByClick.current && setOpen(true), 150);
+      }}
+      // leaving doesn't close it: the next group opening, or leaving the nav, does.
+      // Closing sooner pulls the items below up from under the pointer.
+      onMouseLeave={() => {
+        window.clearTimeout(hoverTimer.current);
+        closedByClick.current = false;
+      }}
+      onFocus={() => setOpen(true)}
+      onBlur={(e) => !e.currentTarget.contains(e.relatedTarget as Node) && setOpen(false)}
+    >
       <button
-        className={`nav-group-btn${open ? ' is-open' : ''}${childActive ? ' has-active' : ''}`}
+        className={`nav-group-btn${open ? ' is-open' : ''}${activeChild ? ' has-active' : ''}`}
         aria-expanded={open}
-        onClick={toggle}
+        onClick={() => {
+          closedByClick.current = open;
+          setOpen(!open);
+        }}
         title={expanded ? undefined : activeChild ? `${g.label} › ${activeChild.label}` : g.label}
       >
         <span className="nav-icon">
           <g.icon size={20} aria-hidden />
         </span>
-        <span className="nav-label">{g.label}</span>
+        <span className="nav-label">
+          {g.label}
+          {activeChild && !open && expanded && <span className="nav-group-current"> › {activeChild.label}</span>}
+        </span>
         <ChevronDown size={16} className="chev" aria-hidden />
       </button>
       {open && (

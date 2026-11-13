@@ -155,7 +155,7 @@ body {
   }
   /* active page: selected fill plus an accent bar on the leading edge */
   .nav-item.is-active,
-  &:not(.is-expanded) .nav-group-btn.has-active {
+  .nav-group-btn.has-active:not(.is-open) {
     background: var(--nav-selected);
     color: $text-on-color;
     font-weight: 600;
@@ -173,6 +173,10 @@ body {
   .nav-group-btn.has-active {
     color: $text-primary;
     font-weight: 600;
+  }
+  /* a closed group names the page you're on inside it */
+  .nav-group-current {
+    font-weight: 500;
   }
   .nav-group-btn .chev {
     margin-left: auto;
