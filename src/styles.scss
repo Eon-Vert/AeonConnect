@@ -385,6 +385,106 @@ body {
     min-width: 10rem;
   }
 }
+.table-toolbar {
+  justify-content: space-between;
+  min-height: 2rem;
+}
+.col-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 40;
+  width: 19rem;
+  padding: $spacing-04;
+  background: $layer-01;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: $spacing-03;
+}
+.cols-custom-tag {
+  margin-left: $spacing-02;
+  font-size: 0.75rem;
+  color: $text-secondary;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.columns-panel {
+  .cols-heading {
+    font-size: 0.875rem;
+    font-weight: 600;
+    margin: $spacing-05 0 $spacing-03;
+  }
+  .cols-list {
+    border: 1px solid $border-subtle-01;
+  }
+  .cols-fixed-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $spacing-03;
+  }
+  .cols-row {
+    display: flex;
+    align-items: center;
+    gap: $spacing-03;
+    min-height: 2.75rem;
+    padding: 0 $spacing-03;
+    background: $layer-01;
+    & + .cols-row {
+      border-top: 1px solid $border-subtle-01;
+    }
+    .cds--form-item,
+    .cds--checkbox-wrapper {
+      flex: none;
+    }
+    &.is-fixed {
+      min-height: 0;
+      gap: $spacing-02;
+      padding: $spacing-02 $spacing-04;
+      border: 1px solid $border-subtle-01;
+      border-radius: 1rem;
+      color: $text-secondary;
+      & + .cols-row {
+        border-top: 1px solid $border-subtle-01;
+      }
+      .cols-label {
+        flex: none;
+        color: $text-primary;
+        font-size: 0.8125rem;
+      }
+    }
+    &.is-dragging {
+      opacity: 0.4;
+    }
+    &.is-over {
+      box-shadow: inset 0 2px 0 $interactive;
+    }
+  }
+  .cols-handle {
+    display: flex;
+    cursor: grab;
+    color: $icon-secondary;
+  }
+  .cols-label {
+    flex: 1;
+    font-size: 0.875rem;
+  }
+  .cols-note {
+    font-size: 0.75rem;
+    color: $text-secondary;
+  }
+  .cols-moves {
+    margin-left: auto;
+    display: flex;
+  }
+}
 .plain-tabs {
   display: flex;
   border-bottom: 1px solid $border-subtle-01;

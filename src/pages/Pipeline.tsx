@@ -12,7 +12,10 @@ import {
   canAddLeads,
   canSeeArchived,
   MSG,
+  HOLD_KINDS,
 } from '../domain/rules';
+import { bucketColumns, clearPrefs, columnLayout, DEFAULT_PREFS, isDefaultPrefs, loadPrefs, savePrefs, type ColumnPrefs } from '../domain/columns';
+import { ColumnsPanel } from '../components/ColumnsPanel';
 import { DATE_PRESETS, presetLabel, type DatePreset } from '../domain/time';
 import {
   activeFilterCount,
@@ -22,6 +25,7 @@ import {
   drillLabel,
   parseQuery,
   SORTS,
+  QUERY_STATUSES,
   sortCases,
   toSearch,
   type PipelineQuery,
@@ -51,8 +55,20 @@ export function Pipeline() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [selected, setSelected] = useState<string[]>([]);
-  const [showQualifyCols, setShowQualifyCols] = useState(true);
   const [reassignOpen, setReassignOpen] = useState(false);
+  // column layout: per role, on this device only (never in the URL, so shared links open the default)
+  const [prefs, setPrefs] = useState<ColumnPrefs>(() => loadPrefs(role));
+  useEffect(() => setPrefs(loadPrefs(role)), [role]);
+  const changePrefs = (p: ColumnPrefs) => {
+    setPrefs(p);
+    savePrefs(role, p);
+  };
+  const resetPrefs = () => {
+    clearPrefs(role);
+    setPrefs(DEFAULT_PREFS);
+  };
+  const [promoteOn, setPromoteOn] = useState({ qualify: true, applicant: true });
+  const [colsOpen, setColsOpen] = useState(false);
 
   const update = (patch: Partial<PipelineQuery>) => setSp(new URLSearchParams(toSearch({ ...q, ...patch }).slice(1)), { replace: true });
   const filterKey = sp.toString();
@@ -79,7 +95,9 @@ export function Pipeline() {
   const nFilters = activeFilterCount(q);
   const drill = drillLabel(q);
   const addLeads = canAddLeads(role);
-  const qualifyCols = q.bucket === 'to_qualify';
+  const bucketCols = bucketColumns(q.bucket);
+  const promote = bucketCols && promoteOn[bucketCols] ? bucketCols : null;
+  const layout = columnLayout({ prefs, promote, bank: q.bank === 'ALL', extras: true });
   const closed = q.bucket === 'closed';
   const readOnly = (c: Case) => !bucketOpenFor(role, bucketOf(c));
   const selectable = closed && role === 'SM' ? (c: Case) => c.stage === 'dropped' : undefined;
@@ -157,6 +175,27 @@ export function Pipeline() {
           selectedItem={SORTS.find((s) => s.id === q.sort)}
           onChange={({ selectedItem }) => selectedItem && update({ sort: selectedItem.id as SortId })}
         />
+        <Dropdown
+          id="hold-kind"
+          titleText="Hold kind"
+          label="Any hold"
+          size="md"
+          items={HOLD_ITEMS}
+          itemToString={(i) => i?.label ?? ''}
+          selectedItem={HOLD_ITEMS.find((h) => h.id === q.hold)}
+          onChange={({ selectedItem }) => update({ hold: (selectedItem?.id ?? '') as PipelineQuery['hold'] })}
+        />
+        <Dropdown
+          id="query-status"
+          titleText="Query"
+          label="Any query state"
+          size="md"
+          items={QUERY_STATUSES}
+          itemToString={(i) => i?.label ?? ''}
+          selectedItem={QUERY_STATUSES.find((x) => x.id === q.queryStatus)}
+          onChange={({ selectedItem }) => update({ queryStatus: selectedItem?.id ?? '' })}
+        />
+        <JourneyFilter q={q} update={update} />
         <div className="filter-check">
           <Checkbox id="company-only" labelText="Company leads only" checked={q.company} onChange={(_, { checked }) => update({ company: checked })} />
         </div>
@@ -175,28 +214,41 @@ export function Pipeline() {
         {q.bank === 'ALL' ? ' · all banks' : ''}
       </div>
 
-      {qualifyCols && (
-        <div className="table-note">
-          {showQualifyCols ? 'Showing qualify columns' : 'Qualify columns hidden'}
-          <ColumnSettings checked={showQualifyCols} onChange={setShowQualifyCols} />
-        </div>
-      )}
-      {closed && (
-        <div className="table-note" style={{ justifyContent: 'space-between' }}>
-          <span>{role === 'SM' ? 'Tick dropped leads to reassign them in bulk. Declined cases are reassigned one at a time from their panel.' : ''}</span>
-          <Gate reason={role !== 'SM' ? MSG.reassign : selected.length === 0 ? 'Select dropped leads first' : null}>
-            <Button size="sm" kind="primary" disabled={role !== 'SM' || selected.length === 0} onClick={() => setReassignOpen(true)}>
-              Reassign{selected.length ? ` (${selected.length})` : ''}
-            </Button>
-          </Gate>
-        </div>
-      )}
+      <div className="table-note table-toolbar">
+        <span className="row-gap">
+          {bucketCols &&
+            (promote
+              ? bucketCols === 'qualify'
+                ? 'Showing qualify columns'
+                : 'Showing applicant columns'
+              : bucketCols === 'qualify'
+                ? 'Qualify columns hidden'
+                : 'Applicant columns in your usual order')}
+          <ColumnSettings
+            bucketCols={bucketCols}
+            promoted={!!promote}
+            onPromote={(v) => bucketCols && setPromoteOn((o) => ({ ...o, [bucketCols]: v }))}
+            onEdit={() => setColsOpen(true)}
+            custom={!isDefaultPrefs(prefs)}
+          />
+        </span>
+        {closed && (
+          <span className="row-gap">
+            <span>{role === 'SM' ? 'Tick dropped leads to reassign them in bulk. Declined cases are reassigned one at a time from their panel.' : ''}</span>
+            <Gate reason={role !== 'SM' ? MSG.reassign : selected.length === 0 ? 'Select dropped leads first' : null}>
+              <Button size="sm" kind="primary" disabled={role !== 'SM' || selected.length === 0} onClick={() => setReassignOpen(true)}>
+                Reassign{selected.length ? ` (${selected.length})` : ''}
+              </Button>
+            </Gate>
+          </span>
+        )}
+      </div>
 
       <ListStates status={status} isEmpty={rows.length === 0} emptyText={`${q.view === 'archived' ? 'No archived cases match these filters.' : 'No cases match these filters.'}${q.date !== 'all' ? ` Only cases captured ${presetLabel(q.date)} are shown: try All time.` : ''}`} onRetry={retry} columns={7}>
         <CaseTable
           rows={rows}
           role={role}
-          columns={{ bank: q.bank === 'ALL', qualify: qualifyCols && showQualifyCols, extra: true }}
+          layout={layout}
           readOnly={readOnly}
           selectable={selectable}
           selected={selected}
@@ -210,6 +262,8 @@ export function Pipeline() {
           ariaLabel="Pipeline cases"
         />
       </ListStates>
+
+      <ColumnsPanel open={colsOpen} role={role} prefs={prefs} onChange={changePrefs} onReset={resetPrefs} onClose={() => setColsOpen(false)} />
 
       {reassignOpen && (
         <ReassignDialog
@@ -333,20 +387,81 @@ export function BucketChips({
   );
 }
 
-function ColumnSettings({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+function ColumnSettings({
+  bucketCols,
+  promoted,
+  onPromote,
+  onEdit,
+  custom,
+}: {
+  bucketCols: 'qualify' | 'applicant' | null;
+  promoted: boolean;
+  onPromote: (v: boolean) => void;
+  onEdit: () => void;
+  custom: boolean;
+}) {
   const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const h = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
+    const k = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+    document.addEventListener('mousedown', h);
+    document.addEventListener('keydown', k);
+    return () => {
+      document.removeEventListener('mousedown', h);
+      document.removeEventListener('keydown', k);
+    };
+  }, [open]);
   return (
-    <span style={{ position: 'relative' }}>
-      <IconButton kind="ghost" size="sm" label="Column settings" align="right" onClick={() => setOpen((o) => !o)}>
+    <span ref={ref} style={{ position: 'relative' }}>
+      <IconButton kind="ghost" size="sm" label="Column settings" align="right" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="col-gear">
         <Settings />
       </IconButton>
+      {custom && <span className="cols-custom-tag">Custom columns</span>}
       {open && (
-        <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 30, background: 'var(--cds-layer-01)', boxShadow: '0 2px 8px rgba(0,0,0,.25)', padding: '0.75rem 1rem', width: '15rem' }}>
-          <Checkbox id="qual-cols" labelText="Show Salary and Consent" checked={checked} onChange={(_, { checked: v }) => onChange(v)} />
+        <div className="col-menu" role="dialog" aria-label="Column settings">
+          {bucketCols && (
+            <Checkbox
+              id="bucket-cols"
+              labelText={bucketCols === 'qualify' ? 'Show Salary and Consent after Name' : 'Show Journey start and Qualified by after Stage'}
+              checked={promoted}
+              onChange={(_, { checked }) => onPromote(checked)}
+            />
+          )}
+          <Button
+            kind="ghost"
+            size="sm"
+            onClick={() => {
+              setOpen(false);
+              onEdit();
+            }}
+          >
+            Edit columns…
+          </Button>
         </div>
       )}
     </span>
   );
 }
+
+function JourneyFilter({ q, update }: { q: PipelineQuery; update: (p: Partial<PipelineQuery>) => void }) {
+  return (
+    <DatePicker
+      datePickerType="range"
+      dateFormat="d/m/Y"
+      value={q.jFrom && q.jTo ? [new Date(q.jFrom), new Date(q.jTo)] : undefined}
+      onChange={(dates: Date[]) => {
+        if (dates.length === 2) update({ jFrom: dates[0].getTime(), jTo: dates[1].getTime() });
+        if (dates.length === 0) update({ jFrom: undefined, jTo: undefined });
+      }}
+    >
+      <DatePickerInput id="journey-from" labelText="Journey start from" placeholder="dd/mm/yyyy" size="md" />
+      <DatePickerInput id="journey-to" labelText="Journey start to" placeholder="dd/mm/yyyy" size="md" />
+    </DatePicker>
+  );
+}
+
+const HOLD_ITEMS = [{ id: '', label: 'Any hold' }, ...HOLD_KINDS.map((h) => ({ id: h.id as string, label: h.label }))];
 
 export { DEFAULTS };

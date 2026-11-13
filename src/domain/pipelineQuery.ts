@@ -1,6 +1,6 @@
-import type { BankId, BucketId, Case, StageId } from './types';
+import type { BankId, BucketId, Case, HoldKind, StageId } from './types';
 import { bucketOf, lateBy, stageLabel } from './rules';
-import { NOW, HOUR, presetRange, type DatePreset } from './time';
+import { NOW, HOUR, DAY, presetRange, type DatePreset } from './time';
 
 export type SortId = 'urgent' | 'updated' | 'captured';
 export const SORTS: { id: SortId; label: string }[] = [
@@ -25,7 +25,20 @@ export interface PipelineQuery {
   stage?: StageId;
   journeyStarted: boolean;
   untouched72: boolean;
+  /** filter row */
+  hold: HoldKind | '';
+  queryStatus: 'open' | 'replied' | 'none' | '';
+  /** journey start range, inclusive Dubai days (ms of each day's start) */
+  jFrom?: number;
+  jTo?: number;
 }
+
+export const QUERY_STATUSES: { id: PipelineQuery['queryStatus']; label: string }[] = [
+  { id: '', label: 'Any query state' },
+  { id: 'open', label: 'Open' },
+  { id: 'replied', label: 'Replied' },
+  { id: 'none', label: 'No query' },
+];
 
 export const DEFAULTS: PipelineQuery = {
   bank: 'MAWARID',
@@ -38,6 +51,8 @@ export const DEFAULTS: PipelineQuery = {
   company: false,
   journeyStarted: false,
   untouched72: false,
+  hold: '',
+  queryStatus: '',
 };
 
 export function parseQuery(sp: URLSearchParams): PipelineQuery {
@@ -57,6 +72,10 @@ export function parseQuery(sp: URLSearchParams): PipelineQuery {
     stage: (sp.get('stage') as StageId) || undefined,
     journeyStarted: sp.get('journey') === '1',
     untouched72: sp.get('untouched72') === '1',
+    hold: (sp.get('hold') as HoldKind) || '',
+    queryStatus: (sp.get('qs') as PipelineQuery['queryStatus']) || '',
+    jFrom: num('jfrom'),
+    jTo: num('jto'),
   };
 }
 
@@ -79,6 +98,12 @@ export function toSearch(q: Partial<PipelineQuery>): string {
   if (full.stage) sp.set('stage', full.stage);
   if (full.journeyStarted) sp.set('journey', '1');
   if (full.untouched72) sp.set('untouched72', '1');
+  if (full.hold) sp.set('hold', full.hold);
+  if (full.queryStatus) sp.set('qs', full.queryStatus);
+  if (full.jFrom && full.jTo) {
+    sp.set('jfrom', String(full.jFrom));
+    sp.set('jto', String(full.jTo));
+  }
   const s = sp.toString();
   return s ? `?${s}` : '';
 }
@@ -95,6 +120,9 @@ export function activeFilterCount(q: PipelineQuery): number {
   if (q.sort !== DEFAULTS.sort) n++;
   if (q.bucket !== 'all') n++;
   if (q.company) n++;
+  if (q.hold) n++;
+  if (q.queryStatus) n++;
+  if (q.jFrom && q.jTo) n++;
   if (q.reached || q.stage || q.journeyStarted || q.untouched72) n++;
   return n;
 }
@@ -122,6 +150,10 @@ export function baseFilter(cases: Case[], q: PipelineQuery): Case[] {
     if (q.stage && c.stage !== q.stage) return false;
     if (q.journeyStarted && !c.journeyStartAt) return false;
     if (q.untouched72 && !(c.stage === 'to_contact' && NOW - c.stageSince > 72 * HOUR)) return false;
+    if (q.hold && c.hold?.kind !== q.hold) return false;
+    if (q.queryStatus === 'none' && c.query) return false;
+    if ((q.queryStatus === 'open' || q.queryStatus === 'replied') && c.query?.status !== q.queryStatus) return false;
+    if (q.jFrom && q.jTo && !(c.journeyStartAt && c.journeyStartAt >= q.jFrom && c.journeyStartAt < q.jTo + DAY)) return false;
     if (term) {
       const hay = `${c.name} ${c.employer} ${c.applicationNumber ?? ''} ${c.id}`.toLowerCase();
       if (!hay.includes(term)) return false;

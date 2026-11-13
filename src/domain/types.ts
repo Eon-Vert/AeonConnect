@@ -63,8 +63,10 @@ export interface ActivityEvent {
   by: string;
 }
 
+export type HoldKind = 'compliance' | 'manager' | 'amount_check' | 'bank';
+
 export interface Hold {
-  kind: 'bank' | 'compliance';
+  kind: HoldKind;
   since: number;
   reason: string;
 }

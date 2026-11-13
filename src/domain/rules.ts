@@ -424,6 +424,15 @@ export const canSeeArchived = (role: Role) => role === 'SM';
 
 /* ------------------------------------------------------------- misc helpers */
 
+export const HOLD_KINDS: { id: import('./types').HoldKind; label: string }[] = [
+  { id: 'compliance', label: 'Compliance' },
+  { id: 'manager', label: 'Manager' },
+  { id: 'amount_check', label: 'Amount check' },
+  { id: 'bank', label: 'Bank' },
+];
+export const holdLabel = (k: import('./types').HoldKind) => HOLD_KINDS.find((h) => h.id === k)!.label;
+export const holdTagColor = (k: import('./types').HoldKind): TagColor => (k === 'compliance' ? 'magenta' : k === 'bank' ? 'cool-gray' : 'warm-gray');
+
 /** one name per product everywhere (mock data section of the brief) */
 export const productLabel = (p: Case['product']) => (p === 'card' ? 'Credit Card' : 'Personal loan');
 

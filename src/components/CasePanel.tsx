@@ -20,6 +20,8 @@ import {
   MSG,
   moveOptions,
   productLabel,
+  holdLabel,
+  holdTagColor,
   roleSeesMoveTo,
   stageLabel,
   type Transition,
@@ -122,7 +124,7 @@ function PanelBody({ c, onClose }: { c: Case; onClose: () => void }) {
           )}
           <JourneyIcon c={c} />
           {c.journey === 'none' && <span className="icon-text muted">No journey yet</span>}
-          {c.hold && <Tag type={c.hold.kind === 'compliance' ? 'magenta' : 'cool-gray'}>On hold · {c.hold.kind}</Tag>}
+          {c.hold && <Tag type={holdTagColor(c.hold.kind)}>On hold · {holdLabel(c.hold.kind).toLowerCase()}</Tag>}
           {c.stage === 'pre_compliance' && c.checks.pre && <Tag type="green">Pre-check passed</Tag>}
           {c.stage === 'post_compliance' && c.checks.post && <Tag type="green">Post-check passed</Tag>}
         </div>
@@ -540,7 +542,7 @@ function DetailsTab({ c }: { c: Case }) {
   ];
   if (c.cardType) rows.push(['Card type', c.cardType]);
   if (c.tenure) rows.push(['Tenure', `${c.tenure} months`]);
-  if (c.hold) rows.push(['Hold', `${c.hold.kind === 'compliance' ? 'Compliance' : 'Bank'} · ${c.hold.reason}`]);
+  if (c.hold) rows.push(['Hold', `${holdLabel(c.hold.kind)} · ${c.hold.reason}`]);
   if (c.closeReason) rows.push(['Close reason', c.closeReason]);
   return (
     <div className="details-grid">

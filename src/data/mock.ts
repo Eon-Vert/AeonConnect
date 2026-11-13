@@ -447,6 +447,16 @@ export function generate(): Dataset {
   const a0981 = cases.find((c) => c.id === 'A-0981');
   if (a0981) a0981.query = undefined;
 
+  // manager holds (the Sales Manager paused the lead) and amount checks (approved amount above the auto-limit)
+  mw.filter((c) => c.stage === 'contacted' && !c.query && !used.has(c)).slice(0, 3).forEach((c, i) => {
+    c.hold = { kind: 'manager', since: NOW - [20, 50, 96][i] * HOUR, reason: ['Customer travelling until next week', 'Waiting for the employer to be added to the approved list', 'Duplicate lead under review'][i] };
+    used.add(c);
+  });
+  mw.filter((c) => c.stage === 'approved' && !used.has(c) && (c.product === 'loan' || c.pickup === 'completed')).slice(0, 3).forEach((c, i) => {
+    c.hold = { kind: 'amount_check', since: NOW - [8, 30, 75][i] * HOUR, reason: 'Approved amount above the auto-limit; second check needed' };
+    used.add(c);
+  });
+
   // SO-07: 9 company leads untouched over 72h
   const untouched = shuffle(mw.filter((c) => c.stage === 'to_contact' && !used.has(c))).slice(0, 9);
   const b7 = batches.filter((b) => b.bank === 'MAWARID' && NOW - b.uploadedAt > 8 * DAY).slice(-1)[0];
