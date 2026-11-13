@@ -13,7 +13,7 @@ import {
 import { Enterprise, Money, Purchase, User, UserMultiple } from '@carbon/icons-react';
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import type { Case, Role } from '../domain/types';
-import { BANKS, ageLabel, canSeeSalary, durationLabel, lateBy, withLabel } from '../domain/rules';
+import { BANKS, ageLabel, productLabel, canSeeSalary, durationLabel, lateBy, withLabel } from '../domain/rules';
 import { NOW, fmtDateTime, fmtShortDate } from '../domain/time';
 import { maskPhone } from '../data/mock';
 import { StageTag } from './common';
@@ -260,7 +260,7 @@ function ProductCell({ c }: { c: Case }) {
   return (
     <span className="icon-text" style={{ color: 'inherit', fontSize: '0.875rem' }}>
       {c.product === 'card' ? <Purchase size={16} aria-hidden /> : <Money size={16} aria-hidden />}
-      {c.product === 'card' ? 'Card' : 'Personal finance'}
+      {productLabel(c.product)}
     </span>
   );
 }

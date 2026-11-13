@@ -1,16 +1,4 @@
-import {
-  Button,
-  Checkbox,
-  DatePicker,
-  DatePickerInput,
-  DismissibleTag,
-  Dropdown,
-  IconButton,
-  Search,
-  Tab,
-  TabList,
-  Tabs,
-} from '@carbon/react';
+import { Button, Checkbox, DatePicker, DatePickerInput, DismissibleTag, Dropdown, IconButton, Search } from '@carbon/react';
 import { Add, ChevronDown, Renew, Settings } from '@carbon/icons-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -42,7 +30,7 @@ import {
 import { OFFICERS } from '../data/mock';
 import { useStore } from '../state/store';
 import { CaseTable } from '../components/CaseTable';
-import { Gate, ListStates, PageHeader, useListStatus } from '../components/common';
+import { Gate, ListStates, PageHeader, useListStatus, PlainTabs } from '../components/common';
 import { ReassignDialog } from '../components/dialogs';
 
 const BANK_ITEMS = [
@@ -121,12 +109,12 @@ export function Pipeline() {
       />
 
       {canSeeArchived(role) && (
-        <Tabs selectedIndex={q.view === 'archived' ? 1 : 0} onChange={({ selectedIndex }: { selectedIndex: number }) => update({ view: selectedIndex === 1 ? 'archived' : 'all', bucket: 'all', date: selectedIndex === 1 ? 'all' : DEFAULTS.date })}>
-          <TabList aria-label="Pipeline views" style={{ marginBottom: '1.5rem' }}>
-            <Tab>All cases</Tab>
-            <Tab>Archived</Tab>
-          </TabList>
-        </Tabs>
+        <PlainTabs
+          label="Pipeline views"
+          tabs={['All cases', 'Archived']}
+          selected={q.view === 'archived' ? 1 : 0}
+          onChange={(i) => update({ view: i === 1 ? 'archived' : 'all', bucket: 'all', date: i === 1 ? 'all' : DEFAULTS.date })}
+        />
       )}
 
       <div className="filter-row">

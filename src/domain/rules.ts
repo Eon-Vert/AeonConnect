@@ -392,19 +392,20 @@ export function canReassign(c: Case, role: Role): Check {
 export function canAssignPickup(c: Case, role: Role): Check {
   if (c.product !== 'card' || c.stage !== 'approved') return hidden;
   if (c.pickup !== 'needs_assignment') return hidden;
-  if (role !== 'SM') return no('Only a Sales Manager assigns pickups');
+  // pickups are a Sales Manager job: other roles see the pickup status instead
+  if (role !== 'SM') return hidden;
   return ok;
 }
 
 export function canApprovePickup(c: Case, role: Role): Check {
   if (c.product !== 'card' || c.pickup !== 'needs_approval') return hidden;
-  if (role !== 'SM') return no('Only a Sales Manager approves pickups');
+  if (role !== 'SM') return hidden;
   return ok;
 }
 
 export function canCompletePickup(c: Case, role: Role): Check {
   if (c.product !== 'card' || c.pickup !== 'assigned') return hidden;
-  if (role !== 'SM') return no('Only a Sales Manager confirms pickups');
+  if (role !== 'SM') return hidden;
   return ok;
 }
 
@@ -422,6 +423,9 @@ export const canSeeSalary = (role: Role) => role === 'SM';
 export const canSeeArchived = (role: Role) => role === 'SM';
 
 /* ------------------------------------------------------------- misc helpers */
+
+/** one name per product everywhere (mock data section of the brief) */
+export const productLabel = (p: Case['product']) => (p === 'card' ? 'Credit Card' : 'Personal loan');
 
 export function ageLabel(ms: number): string {
   const h = Math.max(0, Math.floor(ms / HOUR));

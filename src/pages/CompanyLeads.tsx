@@ -1,4 +1,4 @@
-import { ContentSwitcher, Dropdown, Search, Switch, Tab, TabList, Tabs, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Tag } from '@carbon/react';
+import { ContentSwitcher, Dropdown, Search, Switch, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Tag } from '@carbon/react';
 import { ChevronDown, ChevronRight } from '@carbon/icons-react';
 import { Fragment, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
@@ -7,7 +7,7 @@ import { DATE_PRESETS, DAY, HOUR, NOW, fmtDate, presetRange, type DatePreset } f
 import { pipelineLink, type PipelineQuery } from '../domain/pipelineQuery';
 import { OFFICERS } from '../data/mock';
 import { useStore } from '../state/store';
-import { ListStates, PageHeader, useListStatus } from '../components/common';
+import { ListStates, PageHeader, useListStatus, PlainTabs } from '../components/common';
 import { AddLeadsFlow } from '../components/AddLeadsFlow';
 
 const TABS = ['officers', 'analytics', 'upload'] as const;
@@ -45,6 +45,8 @@ export function CompanyLeads() {
   const [search, setSearch] = useState('');
 
   const [from, to] = presetRange(date);
+  // every lead that came in a batch, archived ones included: Analytics counts whole batches
+  const batchCases = useMemo(() => cases.filter((c) => c.batchId && c.bank === bank), [cases, bank]);
   const leads = useMemo(
     () => cases.filter((c) => c.companyProvided && !c.archived && c.bank === bank && c.capturedAt >= from && c.capturedAt < to),
     [cases, bank, from, to],
@@ -57,13 +59,7 @@ export function CompanyLeads() {
   return (
     <div className="page">
       <PageHeader title="Company leads" subtitle="Leads the company provided, and whether officers are working them." />
-      <Tabs selectedIndex={TABS.indexOf(tab)} onChange={({ selectedIndex }: { selectedIndex: number }) => setTab(TABS[selectedIndex])}>
-        <TabList aria-label="Company leads views" style={{ marginBottom: '1.5rem' }}>
-          <Tab>Officers</Tab>
-          <Tab>Analytics</Tab>
-          <Tab>Upload</Tab>
-        </TabList>
-      </Tabs>
+      <PlainTabs label="Company leads views" tabs={['Officers', 'Analytics', 'Upload']} selected={TABS.indexOf(tab)} onChange={(i) => setTab(TABS[i])} />
       <div className="filter-row">
         <Dropdown id="cl-bank" titleText="Bank team" label="Bank team" size="md" items={BANK_ITEMS} itemToString={(i) => i?.label ?? ''} selectedItem={BANK_ITEMS.find((b) => b.id === bank)} onChange={({ selectedItem }) => selectedItem && setBank(selectedItem.id as BankId)} />
         <Dropdown
@@ -86,7 +82,7 @@ export function CompanyLeads() {
       {tab === 'officers' ? (
         <OfficersTab leads={leads} team={team} search={search} drillBase={drillBase} keyStr={`${bank}|${date}|${team}|${search}`} />
       ) : (
-        <AnalyticsTab leads={leads} batches={batches.filter((b) => b.bank === bank && b.uploadedAt >= from && b.uploadedAt < to)} keyStr={`${bank}|${date}`} />
+        <AnalyticsTab batchCases={batchCases} batches={batches.filter((b) => b.bank === bank && b.uploadedAt >= from && b.uploadedAt < to)} keyStr={`${bank}|${date}`} />
       )}
     </div>
   );
@@ -114,7 +110,11 @@ function OfficersTab({ leads, team, search, drillBase, keyStr }: { leads: Case[]
 
   return (
     <>
-      <p className="helper-line">Call metrics will appear once call tracking is added.</p>
+      <p className="helper-line">
+        Call metrics will appear once call tracking is added.
+        <br />
+        <Tag type="warm-gray" size="sm">Placeholder threshold</Tag> "Over 72h" uses a placeholder 72-hour threshold until the founder confirms the number.
+      </p>
       <ListStates status={status} isEmpty={rows.length === 0} emptyText="No company leads in this period." onRetry={retry} columns={10} what="company leads">
         <div className="tiles">
           {tiles.map((m) => (
@@ -179,26 +179,29 @@ const GROUPS: { id: GroupBy; label: string }[] = [
   { id: 'platform', label: 'Ad platform' },
 ];
 
-function AnalyticsTab({ leads, batches, keyStr }: { leads: Case[]; batches: Batch[]; keyStr: string }) {
-  const allBatches = useStore((s) => s.batches);
+function AnalyticsTab({ batchCases, batches, keyStr }: { batchCases: Case[]; batches: Batch[]; keyStr: string }) {
   const [by, setBy] = useState<GroupBy>('campaign');
   const [open, setOpen] = useState<string[]>([]);
   const { status, forceEmpty, retry } = useListStatus(`cl-an|${keyStr}|${by}`);
-  const batchOf = (c: Case) => allBatches.find((b) => b.id === c.batchId)!;
 
+  /*
+   * One scope for every column: the batches uploaded in the period and every lead in them.
+   * So Rows uploaded = Assigned + Skipped at upload, for each group and each batch.
+   */
   const groups = useMemo(() => {
-    const keys = new Set<string>([...batches.map((b) => b[by]), ...leads.map((c) => batchOf(c)?.[by]).filter(Boolean)]);
-    return [...keys]
+    const keys = [...new Set(batches.map((b) => b[by]))];
+    return keys
       .map((k) => {
-        const bs = allBatches.filter((b) => b[by] === k && (batches.includes(b) || leads.some((c) => c.batchId === b.id)));
-        const cs = leads.filter((c) => batchOf(c)?.[by] === k);
+        const bs = batches.filter((b) => b[by] === k).sort((a, b) => b.uploadedAt - a.uploadedAt);
+        const ids = new Set(bs.map((b) => b.id));
+        const cs = batchCases.filter((c) => ids.has(c.batchId!));
         const contacted = count(cs, 'contacted');
         const newest = Math.max(...bs.map((b) => b.uploadedAt));
         return {
           key: k,
-          batches: bs.sort((a, b) => b.uploadedAt - a.uploadedAt),
-          uploaded: bs.filter((b) => batches.includes(b)).reduce((s, b) => s + b.rowsUploaded, 0),
-          skipped: bs.filter((b) => batches.includes(b)).reduce((s, b) => s + b.skipped, 0),
+          batches: bs,
+          uploaded: bs.reduce((s, b) => s + b.rowsUploaded, 0),
+          skipped: bs.reduce((s, b) => s + b.skipped, 0),
           assigned: cs.length,
           untouched: count(cs, 'untouched'),
           contacted,
@@ -210,8 +213,7 @@ function AnalyticsTab({ leads, batches, keyStr }: { leads: Case[]; batches: Batc
         };
       })
       .sort((a, b) => b.assigned - a.assigned);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leads, batches, by, allBatches]);
+  }, [batchCases, batches, by]);
   const rows = forceEmpty ? [] : groups;
 
   return (
@@ -226,7 +228,7 @@ function AnalyticsTab({ leads, batches, keyStr }: { leads: Case[]; batches: Batc
           ))}
         </ContentSwitcher>
       </div>
-      <p className="helper-line">Eligible rate % = eligible ÷ contacted. Groups with a batch under 7 days old are marked too early to judge.</p>
+      <p className="helper-line">Covers batches uploaded in the period and every lead in them, so Rows uploaded = Assigned + Skipped at upload. Eligible rate % = eligible ÷ contacted. Groups with a batch under 7 days old are marked too early to judge.</p>
       <ListStates status={status} isEmpty={rows.length === 0} emptyText="No company leads in this period." onRetry={retry} columns={9} what="analytics">
         <div className="case-table-wrap">
           <Table size="lg" className="plain-table" aria-label={`Company leads by ${by}`}>

@@ -1,6 +1,6 @@
 import { Button, DataTableSkeleton, Tag, Tooltip } from '@carbon/react';
 import { Renew } from '@carbon/icons-react';
-import { useEffect, useState, type ReactElement, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react';
 import type { Case } from '../domain/types';
 import { stageDef } from '../domain/rules';
 import { useStore } from '../state/store';
@@ -102,4 +102,45 @@ export function ListStates({
   if (status === 'error') return <ListError onRetry={onRetry} what={what} />;
   if (isEmpty) return <ListEmpty text={emptyText} />;
   return <>{children}</>;
+}
+
+/**
+ * Plain tab row. Carbon's Tabs render a hidden "Remove … tab" button inside every tab,
+ * which screen readers announce even when tabs can't be removed; these are plain tabs.
+ */
+export function PlainTabs({ label, tabs, selected, onChange }: { label: string; tabs: ReactNode[]; selected: number; onChange: (i: number) => void }) {
+  const refs = useRef<(HTMLButtonElement | null)[]>([]);
+  const go = (i: number) => {
+    onChange(i);
+    refs.current[i]?.focus();
+  };
+  return (
+    <div role="tablist" aria-label={label} className="plain-tabs">
+      {tabs.map((t, i) => (
+        <button
+          key={i}
+          ref={(el) => {
+            refs.current[i] = el;
+          }}
+          type="button"
+          role="tab"
+          aria-selected={i === selected}
+          tabIndex={i === selected ? 0 : -1}
+          className={`plain-tab${i === selected ? ' is-selected' : ''}`}
+          onClick={() => onChange(i)}
+          onKeyDown={(e) => {
+            const n = tabs.length;
+            if (e.key === 'ArrowRight') go((i + 1) % n);
+            else if (e.key === 'ArrowLeft') go((i - 1 + n) % n);
+            else if (e.key === 'Home') go(0);
+            else if (e.key === 'End') go(n - 1);
+            else return;
+            e.preventDefault();
+          }}
+        >
+          {t}
+        </button>
+      ))}
+    </div>
+  );
 }

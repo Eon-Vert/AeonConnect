@@ -4,7 +4,7 @@
  */
 import type { ActivityEvent, Batch, BankId, Case, CaseQuery, DeskTask, Journey, Officer, Product, StageId } from '../domain/types';
 import { DAY, HOUR, NOW } from '../domain/time';
-import { BANKS, bucketOf, stageLabel } from '../domain/rules';
+import { BANKS, ageLabel, bucketOf, canQualify, stageLabel } from '../domain/rules';
 
 /* ----------------------------------------------------------------- random */
 function mulberry32(seed: number) {
@@ -65,14 +65,32 @@ export const SM_CODE = 'SM-02';
 export const COORD_CODE = 'CD-01';
 export const CO_CODE = 'CO-03';
 
-const CUSTOMER_QUERIES = [
+/** customer queries, by how far the case has got: no one queries a lead nobody has called yet */
+const CUSTOMER_QUERIES_EARLY = [
   'Customer asks whether the annual fee is waived in the first year.',
-  'Customer wants to change the delivery address for the card.',
-  'Customer asks why the approved limit is lower than requested.',
-  'Customer says the salary transfer letter was already sent last week.',
   'Customer wants to know the early settlement charge on the loan.',
   'Customer asks if a second supplementary card is possible.',
+  'Customer asks which documents are needed to apply.',
 ];
+const CUSTOMER_QUERIES_WITH_BANK = [
+  'Customer says the salary transfer letter was already sent last week.',
+  'Customer asks how long the bank decision usually takes.',
+  'Customer asks whether the annual fee is waived in the first year.',
+];
+const CUSTOMER_QUERIES_APPROVED = [
+  'Customer wants to change the delivery address for the card.',
+  'Customer asks why the approved limit is lower than requested.',
+  'Customer asks when the card will be delivered.',
+];
+const EARLY_STAGES: StageId[] = ['contacted', 'eligible'];
+const APPROVED_STAGES: StageId[] = ['approved', 'post_compliance', 'docs_submitted'];
+/** Mawarid (bank-side) queries only exist once an application is being prepared */
+const MAWARID_QUERY_STAGES: StageId[] = ['qualified', 'pre_compliance', 'applied', 'wip', 'on_hold', 'approved', 'post_compliance', 'docs_submitted'];
+function customerQueryText(stage: StageId) {
+  if (EARLY_STAGES.includes(stage)) return pick(CUSTOMER_QUERIES_EARLY);
+  if (APPROVED_STAGES.includes(stage)) return pick(CUSTOMER_QUERIES_APPROVED);
+  return pick(CUSTOMER_QUERIES_WITH_BANK);
+}
 const MAWARID_QUERIES = [
   'Salary certificate is older than 30 days. Please share a new one.',
   'Employer name on the application does not match the labour contract.',
@@ -253,7 +271,8 @@ function makeCase(bank: BankId, stage: StageId, opts: Plan[2], idx: number): Cas
     employer: pick(EMPLOYERS),
     jobTitle: pick(TITLES),
     salary: int(8, 60) * 1000 + pick([0, 250, 500, 750]),
-    consent: chance(0.9),
+    // consent is required when a lead is captured (doc 02 §3)
+    consent: true,
     product,
     journey,
     journeyStartAt: journeyStartAt && journeyStartAt < NOW ? journeyStartAt : undefined,
@@ -297,7 +316,7 @@ function makeCase(bank: BankId, stage: StageId, opts: Plan[2], idx: number): Cas
 }
 
 function makeQuery(c: Case, i: number, forced?: { kind?: CaseQuery['kind']; status?: CaseQuery['status'] }): CaseQuery {
-  const kind = forced?.kind ?? (chance(0.6) ? 'customer' : 'mawarid');
+  const kind = forced?.kind ?? (MAWARID_QUERY_STAGES.includes(c.stage) && chance(0.45) ? 'mawarid' : 'customer');
   const status = forced?.status ?? (chance(0.6) ? 'open' : 'replied');
   const raisedAt = NOW - between(2, 120) * HOUR;
   const q: CaseQuery = {
@@ -306,7 +325,7 @@ function makeQuery(c: Case, i: number, forced?: { kind?: CaseQuery['kind']; stat
     status,
     raisedBy: kind === 'customer' ? `Customer (via ${c.officerId})` : 'Mawarid',
     raisedAt,
-    messages: [{ author: kind === 'customer' ? `Customer (via ${c.officerId})` : 'Mawarid', text: pick(kind === 'customer' ? CUSTOMER_QUERIES : MAWARID_QUERIES), at: raisedAt }],
+    messages: [{ author: kind === 'customer' ? `Customer (via ${c.officerId})` : 'Mawarid', text: kind === 'customer' ? customerQueryText(c.stage) : pick(MAWARID_QUERIES), at: raisedAt }],
   };
   if (status === 'replied') {
     q.messages.push({ author: SM_CODE, text: 'Shared the answer with the customer and attached the updated document.', at: Math.min(NOW - HOUR, raisedAt + between(2, 30) * HOUR) });
@@ -354,8 +373,8 @@ export function generate(): Dataset {
   // queries on ~15% of open cases
   let qi = 0;
   for (const c of cases) {
-    if (['booked', 'declined', 'back_out', 'ineligible', 'dropped'].includes(c.stage)) continue;
-    if (chance(0.16)) c.query = makeQuery(c, qi++);
+    if (['to_contact', 'booked', 'declined', 'back_out', 'ineligible', 'dropped'].includes(c.stage)) continue;
+    if (chance(0.18)) c.query = makeQuery(c, qi++);
   }
 
   const open = (stage: StageId, f: (c: Case) => boolean = () => true) => mw.filter((c) => c.stage === stage && f(c));
@@ -474,40 +493,42 @@ function buildDeskTasks(cases: Case[]): DeskTask[] {
   let n = 0;
   const add = (t: Omit<DeskTask, 'id'>) => tasks.push({ id: `T-${++n}`, ...t });
   const hrs = (since: number) => (NOW - since) / HOUR;
-  const days = (since: number) => Math.max(1, Math.round((NOW - since) / DAY));
+  // same wording as the Age column, so a reason never disagrees with it
+  const age = (since: number) => ageLabel(NOW - since);
 
   for (const c of mw) {
-    if (bucketOf(c) === 'to_qualify') {
-      add({ category: 'decision', kind: 'qualify', verb: 'Qualify', caseId: c.id, officerId: c.officerId, since: c.stageSince,
-        reason: c.journeyStartAt ? `Journey started ${days(c.journeyStartAt)} days ago` : 'Journey chosen, not started', priority: 300 + hrs(c.stageSince) });
+    // only recommend Qualify when the Sales Manager can actually press it
+    if (bucketOf(c) === 'to_qualify' && !canQualify(c, 'SM').reason) {
+      add({ category: 'decision', kind: 'qualify', verb: 'Qualify', caseId: c.id, officerId: c.officerId, since: c.journeyStartAt!,
+        reason: `Journey started ${age(c.journeyStartAt!)} ago`, priority: 300 + hrs(c.stageSince) });
     }
     if (c.pickup === 'needs_approval') {
       add({ category: 'decision', kind: 'approve_pickup', verb: 'Approve pickup', caseId: c.id, officerId: c.officerId, since: c.stageSince,
-        reason: `Approved ${days(c.stageSince)} days, card case`, priority: 320 + hrs(c.stageSince) });
+        reason: `Approved ${age(c.stageSince)} ago, card case`, priority: 320 + hrs(c.stageSince) });
     }
     if (c.stage === 'dropped' && NOW - c.stageSince < 25 * DAY) {
       add({ category: 'decision', kind: 'reassign', verb: 'Reassign', caseId: c.id, officerId: c.officerId, since: c.stageSince,
-        reason: `Dropped ${days(c.stageSince)} days ago${c.companyProvided ? ', company lead' : ''}`, priority: 200 + hrs(c.stageSince) / 10 });
+        reason: `Dropped ${age(c.stageSince)} ago${c.companyProvided ? ', company lead' : ''}`, priority: 200 + hrs(c.stageSince) / 10 });
     }
     if (c.query) {
       const open = c.query.status === 'open';
       const last = c.query.messages.at(-1)!.at;
       add({ category: 'queries', kind: open ? 'reply' : 'close_query', verb: open ? 'Reply' : 'Close', caseId: c.id, officerId: c.officerId,
         since: open ? c.query.raisedAt : last,
-        reason: open ? `Query waiting ${hrs(c.query.raisedAt) < 72 ? Math.round(hrs(c.query.raisedAt)) + 'h' : days(c.query.raisedAt) + 'd'}` : `Replied ${Math.max(1, Math.round(hrs(last)))}h ago, not closed`,
+        reason: open ? `Query waiting ${age(c.query.raisedAt)}` : `Replied ${age(last)} ago, not closed`,
         priority: (open ? 400 : 250) + hrs(c.query.raisedAt) });
     }
     if (c.pickup === 'needs_assignment') {
       add({ category: 'followups', kind: 'assign_pickup', verb: 'Assign pickup', caseId: c.id, officerId: c.officerId, since: c.stageSince,
-        reason: `Approved ${days(c.stageSince)} days, card case`, priority: 150 + hrs(c.stageSince) });
+        reason: `Approved ${age(c.stageSince)} ago, card case`, priority: 150 + hrs(c.stageSince) });
     }
     if ((c.stage === 'contacted' || (c.stage === 'eligible' && c.journey === 'none')) && NOW - c.stageSince >= 6 * DAY) {
       add({ category: 'followups', kind: 'nudge', verb: 'Nudge', caseId: c.id, officerId: c.officerId, since: c.stageSince,
-        reason: `No move in ${Math.floor((NOW - c.stageSince) / DAY)} days`, priority: 120 + hrs(c.stageSince) });
+        reason: `No move in ${age(c.stageSince)}`, priority: 120 + hrs(c.stageSince) });
     }
     if (c.stage === 'to_contact' && c.companyProvided && NOW - c.stageSince > 72 * HOUR) {
       add({ category: 'followups', kind: 'untouched', verb: 'Untouched company lead', caseId: c.id, officerId: c.officerId, since: c.stageSince,
-        reason: `Company lead untouched ${days(c.stageSince)}d`, priority: 100 + hrs(c.stageSince) });
+        reason: `Company lead untouched ${age(c.stageSince)}`, priority: 100 + hrs(c.stageSince) });
     }
   }
 
@@ -531,7 +552,7 @@ function buildDeskTasks(cases: Case[]): DeskTask[] {
       const c = pool[i % pool.length];
       const due = NOW - (officerId === 'SO-14' ? between(60, 150) : between(4, 120)) * HOUR;
       add({ category: 'followups', kind: 'followup', verb: 'Follow-up', caseId: c.id, officerId, since: due,
-        reason: `Follow-up overdue ${hrs(due) < 72 ? Math.round(hrs(due)) + 'h' : days(due) + 'd'} · ${pick(FOLLOWUP_TOPICS)}`, priority: 50 + hrs(due) / 10 });
+        reason: `Follow-up overdue ${age(due)} · ${pick(FOLLOWUP_TOPICS)}`, priority: 50 + hrs(due) / 10 });
     }
   }
   return tasks.sort((a, b) => b.priority - a.priority);

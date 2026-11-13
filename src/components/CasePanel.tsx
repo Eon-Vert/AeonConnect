@@ -1,19 +1,4 @@
-import {
-  Button,
-  IconButton,
-  InlineNotification,
-  NumberInput,
-  Select,
-  SelectItem,
-  Tab,
-  TabList,
-  TabPanel,
-  TabPanels,
-  Tabs,
-  Tag,
-  TextArea,
-  TextInput,
-} from '@carbon/react';
+import { Button, IconButton, InlineNotification, NumberInput, Select, SelectItem, Tag, TextArea, TextInput } from '@carbon/react';
 import { ChevronDown, Close, Enterprise } from '@carbon/icons-react';
 import { useEffect, useRef, useState } from 'react';
 import type { Case } from '../domain/types';
@@ -34,6 +19,7 @@ import {
   canSeeSalary,
   MSG,
   moveOptions,
+  productLabel,
   roleSeesMoveTo,
   stageLabel,
   type Transition,
@@ -42,7 +28,7 @@ import { fmtDate, fmtDateTime } from '../domain/time';
 import { maskPhone } from '../data/mock';
 import { useStore } from '../state/store';
 import { useUi } from '../state/ui';
-import { Gate, StageTag } from './common';
+import { Gate, StageTag, PlainTabs } from './common';
 import { JourneyIcon } from './CaseTable';
 import {
   AssignPickupDialog,
@@ -256,7 +242,7 @@ function PanelBody({ c, onClose }: { c: Case; onClose: () => void }) {
       </div>
 
       {outcome.visible && role === 'COORD' && !readOnly && <ApprovalFields c={c} />}
-      {c.stage === 'approved' && c.product === 'card' && c.pickup && (
+      {(c.stage === 'approved' || c.stage === 'post_compliance') && c.product === 'card' && c.pickup && (
         <p className="muted" style={{ padding: '0.75rem 1.5rem 0', fontSize: '0.8125rem' }}>
           Document pickup: {pickupText(c)}
         </p>
@@ -265,7 +251,7 @@ function PanelBody({ c, onClose }: { c: Case; onClose: () => void }) {
       <div className="summary-strip">
         <div>
           <div className="k">Product</div>
-          <div className="v">{c.product === 'card' ? 'Credit Card' : 'Personal loan'}</div>
+          <div className="v">{productLabel(c.product)}</div>
         </div>
         <div>
           <div className="k">Officer</div>
@@ -282,24 +268,12 @@ function PanelBody({ c, onClose }: { c: Case; onClose: () => void }) {
       </div>
 
       <div className="panel-body">
-        <Tabs selectedIndex={tab} onChange={({ selectedIndex }: { selectedIndex: number }) => setTab(selectedIndex)}>
-          <TabList aria-label="Case sections" contained={false}>
-            <Tab>Queries{c.query ? ' (1)' : ''}</Tab>
-            <Tab>Details</Tab>
-            <Tab>Activity</Tab>
-          </TabList>
-          <TabPanels>
-            <TabPanel>
-              <QueriesTab c={c} onClose={() => setDialog({ t: 'closeQuery' })} />
-            </TabPanel>
-            <TabPanel>
-              <DetailsTab c={c} />
-            </TabPanel>
-            <TabPanel>
-              <ActivityTab c={c} />
-            </TabPanel>
-          </TabPanels>
-        </Tabs>
+        <PlainTabs label="Case sections" tabs={[`Queries${c.query ? ' (1)' : ''}`, 'Details', 'Activity']} selected={tab} onChange={setTab} />
+        <div role="tabpanel" aria-label={['Queries', 'Details', 'Activity'][tab]}>
+          {tab === 0 && <QueriesTab c={c} onClose={() => setDialog({ t: 'closeQuery' })} />}
+          {tab === 1 && <DetailsTab c={c} />}
+          {tab === 2 && <ActivityTab c={c} />}
+        </div>
       </div>
 
       {dialog?.t === 'qualify' && (
@@ -393,11 +367,11 @@ function PanelBody({ c, onClose }: { c: Case; onClose: () => void }) {
 function pickupText(c: Case) {
   switch (c.pickup) {
     case 'needs_approval':
-      return 'waiting for Sales Manager approval';
+      return 'Not completed · waiting for Sales Manager approval';
     case 'needs_assignment':
-      return 'approved, not assigned yet';
+      return 'Not completed · approved, not assigned yet';
     case 'assigned':
-      return `assigned to ${c.pickupAssignee}`;
+      return `Not completed · assigned to ${c.pickupAssignee}`;
     default:
       return 'Completed';
   }
@@ -553,7 +527,7 @@ function DetailsTab({ c }: { c: Case }) {
     ['Job title', c.jobTitle],
     ['Salary', canSeeSalary(role) ? `AED ${c.salary.toLocaleString('en-US')}` : 'Restricted'],
     ['Consent', c.consent ? 'Given' : 'Missing'],
-    ['Product', c.product === 'card' ? 'Credit Card' : 'Personal loan'],
+    ['Product', productLabel(c.product)],
     ['Journey', c.journey === 'none' ? 'Not started' : c.journey === 'self' ? 'Self' : 'Assisted'],
     ['Journey start', c.journeyStartAt ? fmtDateTime(c.journeyStartAt) : '—'],
     ['Bank team', BANKS[c.bank].label],

@@ -150,7 +150,7 @@ export function RunCheckDialog({ open, onClose, c, onSubmit }: Base & { c: Case;
           <RadioButton id="o-pass" value="pass" labelText={passReason ? `Pass check — ${passReason}` : 'Pass check'} disabled={!!passReason} />
           <RadioButton id="o-hold" value="hold" labelText={held ? 'Put on hold — already on hold' : 'Put on hold'} disabled={held} />
           <RadioButton id="o-query" value="query" labelText="Raise query" disabled={!!c.query} />
-          <RadioButton id="o-back" value="back_out" labelText={`Back out (${stageLabel(c.bank, 'back_out')})`} />
+          <RadioButton id="o-back" value="back_out" labelText={stageLabel(c.bank, 'back_out')} />
         </RadioButtonGroup>
         {c.query && <p className="muted">A query is already open on this case, so another cannot be raised.</p>}
         {outcome === 'pass' && <p>The check is stamped as passed. The case stays at {stageLabel(c.bank, c.stage)} and moves to the Coordinator's queue.</p>}

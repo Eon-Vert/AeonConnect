@@ -29,6 +29,7 @@ import type { BankId, Product } from '../domain/types';
 import { AD_PLATFORMS, CAMPAIGNS, CHANNELS, OFFICERS, maskPhone } from '../data/mock';
 import { useStore, type NewLead } from '../state/store';
 import { pipelineLink } from '../domain/pipelineQuery';
+import { productLabel } from '../domain/rules';
 
 const TEMPLATE_COLS = ['customer name', 'mobile', 'email', 'company', 'salary', 'product interest', 'job title', 'LinkedIn username'];
 const STEPS = ['File', 'Source', 'Preview', 'Share out', 'Confirm'];
@@ -263,7 +264,7 @@ function BulkFlow({ defaultBank }: { defaultBank: BankId }) {
                       <TableCell>{r.name}</TableCell>
                       <TableCell>{r.skip === 'Invalid phone' ? r.phone || '(blank)' : maskPhone(r.phone)}</TableCell>
                       <TableCell>{r.employer || '—'}</TableCell>
-                      <TableCell>{r.product === 'card' ? 'Card' : 'Personal finance'}</TableCell>
+                      <TableCell>{productLabel(r.product)}</TableCell>
                       <TableCell>{r.skip ? <span className="skip-flag">Skipped · {r.skip}</span> : 'Ready'}</TableCell>
                     </TableRow>
                   ))}

@@ -22,7 +22,7 @@ The floating **Viewing as** button (bottom left) switches between Sales Manager,
 - **List state**: Normal, Loading, Empty or Error, to show every list's skeleton, empty line and error-with-Retry.
 - **Reset demo data**: regenerates the seeded data set.
 
-The demo clock is fixed at Friday 13 Nov 2026, 10:30 Dubai time, so counts and ages are the same on every load. Sales Manager's My Day opens at **594 on your desk**.
+The demo clock is fixed at Friday 13 Nov 2026, 10:30 Dubai time, so counts and ages are the same on every load. Sales Manager's My Day opens at **594 tasks on your desk**, across about 237 cases.
 
 ## Where things live
 
@@ -35,9 +35,15 @@ The demo clock is fixed at Friday 13 Nov 2026, 10:30 Dubai time, so counts and a
 | `src/components/CasePanel.tsx` | The one side panel every list opens. |
 | `src/pages/` | My Day for each role, Pipeline, Company leads, placeholders. |
 
+## Deviations to log (D4)
+
+- **All banks for every demo role.** The scope gives the "All banks" option to Head of Sales and Admin only. The prototype keeps it for the Sales Manager, Coordinator and Compliance Officer, because those are the only switchable roles and the brief's demo checklist needs "All banks adds a Bank column". Suggested D4 entry: *"Prototype shows All banks to all three demo roles so the Bank column can be demonstrated; production restricts it to Head of Sales and Admin."*
+- **My Day counts tasks, Pipeline counts cases.** My Day reads "594 tasks on your desk · across N cases" and Pipeline's chips count cases, so the two are labelled as different units rather than forced to match.
+
 ## Assumptions to confirm
 
-- **Desk items are tasks, not cases.** 594 desk items come from about 300 Mawarid cases, so one case can carry several (for example an open query and an overdue follow-up).
+- **Desk items are tasks, not cases.** One case can carry several (for example an open query and an overdue follow-up). Only actions the Sales Manager can take right now are recommended: a case whose journey hasn't started, or that has an open query, isn't offered for Qualify until it can be.
+- **Over 72h is a placeholder.** The 72-hour untouched threshold is waiting on the founder and is labelled as a placeholder in the UI.
 - **A customer query blocks moves until it is closed**, including while it reads "Replied · waiting to close".
 - **DIB qualifying:** DIB has no Pre-Compliance stage, so a qualified DIB case stays at Eligible, moves to To file, and the Coordinator files it to Pre-screening.
 - **Document pickup:** approved card cases move through approve, assign, then complete. The Sales Manager has a "Mark pickup completed" action so the post-compliance block can be shown and lifted in the demo.

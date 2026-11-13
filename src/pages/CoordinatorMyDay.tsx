@@ -1,4 +1,4 @@
-import { Button, Tab, TabList, Tabs, Tag } from '@carbon/react';
+import { Button, Tag } from '@carbon/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Case } from '../domain/types';
 import { bucketOf, hasOpenCustomerQuery } from '../domain/rules';
@@ -6,7 +6,7 @@ import { DAY, NOW, dubaiDayStart } from '../domain/time';
 import { useStore } from '../state/store';
 import { useUi } from '../state/ui';
 import { CaseTable } from '../components/CaseTable';
-import { ListStates, PageHeader, useListStatus } from '../components/common';
+import { ListStates, PageHeader, useListStatus, PlainTabs } from '../components/common';
 
 type TabIdx = 0 | 1 | 2 | 3;
 const MAX_SHOWN = 5;
@@ -212,21 +212,15 @@ export function CoordinatorMyDay() {
       </section>
 
       <div ref={tableRef}>
-        <Tabs
-          selectedIndex={tab}
-          onChange={({ selectedIndex }: { selectedIndex: number }) => {
-            setTab(selectedIndex as TabIdx);
+        <PlainTabs
+          label="Coordinator queues"
+          tabs={TAB_NAMES.map((n, i) => `${n} (${forceEmpty ? 0 : tabRows[i].length})`)}
+          selected={tab}
+          onChange={(i) => {
+            setTab(i as TabIdx);
             setPage(1);
           }}
-        >
-          <TabList aria-label="Coordinator queues">
-            {TAB_NAMES.map((n, i) => (
-              <Tab key={n}>
-                {n} ({forceEmpty ? 0 : tabRows[i].length})
-              </Tab>
-            ))}
-          </TabList>
-        </Tabs>
+        />
         <p className="helper-line" style={{ marginTop: '0.75rem' }}>
           {['Ready to file with the bank.', 'Post-compliance passed: submit the documents.', 'With the bank, Applied onward.', "Read-only: cases waiting on someone else, and why they aren't ready to file."][tab]}
         </p>

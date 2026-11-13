@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { Batch, Case, DeskKind, DeskTask, Role, StageId, BankId, Product } from '../domain/types';
 import { generate, CO_CODE, COORD_CODE, SM_CODE } from '../data/mock';
 import { NOW } from '../domain/time';
-import { stageLabel } from '../domain/rules';
+import { ageLabel, bucketOf, canQualify, stageLabel } from '../domain/rules';
 
 export type ListMode = 'normal' | 'loading' | 'empty' | 'error';
 
@@ -226,6 +226,27 @@ export const useStore = create<State>((set, get) => {
         'Query closed',
       );
       resolveDesk(id, ['reply', 'close_query']);
+      // a query was the only thing stopping Qualify: put the decision on the desk now
+      const c = caseById(id);
+      const hasQualifyTask = get().deskTasks.some((t) => t.caseId === id && t.kind === 'qualify' && !t.doneAt);
+      if (c.bank === 'MAWARID' && bucketOf(c) === 'to_qualify' && !canQualify(c, 'SM').reason && !hasQualifyTask) {
+        set((s) => ({
+          deskTasks: [
+            {
+              id: `T-q-${id}-${clock}`,
+              category: 'decision',
+              kind: 'qualify',
+              verb: 'Qualify',
+              caseId: id,
+              officerId: c.officerId,
+              since: c.journeyStartAt!,
+              reason: `Journey started ${ageLabel(NOW - c.journeyStartAt!)} ago · query now closed`,
+              priority: 999,
+            },
+            ...s.deskTasks,
+          ],
+        }));
+      }
       toast('Query closed', `Case ${id}`);
     },
 

@@ -1,4 +1,4 @@
-import { Button, DismissibleTag, Pagination, Tab, TabList, Tabs, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@carbon/react';
+import { Button, DismissibleTag, Pagination, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@carbon/react';
 import { ArrowRight } from '@carbon/icons-react';
 import { useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -8,7 +8,7 @@ import { NOW, fmtDateTime } from '../domain/time';
 import { pipelineLink } from '../domain/pipelineQuery';
 import { useStore } from '../state/store';
 import { useUi } from '../state/ui';
-import { ListStates, PageHeader, useListStatus } from '../components/common';
+import { ListStates, PageHeader, useListStatus, PlainTabs } from '../components/common';
 
 const CATS: { id: DeskCategory; title: string; emphasised?: boolean }[] = [
   { id: 'decision', title: 'Needs your decision', emphasised: true },
@@ -62,12 +62,15 @@ export function SalesManagerMyDay() {
   const listRef = useRef<HTMLDivElement>(null);
 
   const open = useMemo(() => deskTasks.filter((t) => !t.doneAt), [deskTasks]);
+  const openCases = useMemo(() => new Set(open.map((t) => t.caseId)).size, [open]);
+  // the full list reads oldest first, so ages run in one direction
+  const openByAge = useMemo(() => [...open].sort((a, b) => a.since - b.since), [open]);
   const done = useMemo(() => deskTasks.filter((t) => t.doneAt).sort((a, b) => b.doneAt! - a.doneAt!), [deskTasks]);
   const cards = useMemo(() => CATS.map((c) => ({ ...c, ...buildCard(c.id, open) })), [open]);
   const { status: cardStatus, forceEmpty, retry: retryCards } = useListStatus('myday-cards');
   const { status, retry } = useListStatus(`myday-list|${tab}|${catFilter}|${page}|${pageSize}`);
 
-  const listRows = forceEmpty ? [] : (tab === 0 ? open : done).filter((t) => !catFilter || t.category === catFilter);
+  const listRows = forceEmpty ? [] : (tab === 0 ? openByAge : done).filter((t) => !catFilter || t.category === catFilter);
   const pageRows = listRows.slice((page - 1) * pageSize, page * pageSize);
 
   const seeAll = (cat: DeskCategory) => {
@@ -79,7 +82,12 @@ export function SalesManagerMyDay() {
 
   return (
     <div className="page">
-      <PageHeader title="My Day" subtitle="Sales Manager · Mawarid" right={<span className="desk-count">{forceEmpty ? 0 : open.length} on your desk</span>} />
+      <PageHeader title="My Day" subtitle="Sales Manager · Mawarid" right={
+          <span className="desk-count">
+            {forceEmpty ? 0 : open.length} tasks on your desk
+            <span className="desk-count-sub">across {forceEmpty ? 0 : openCases} cases · one case can need several tasks</span>
+          </span>
+        } />
 
       <section className="dtf" aria-labelledby="dtf-title">
         <div className="dtf-head">
@@ -120,7 +128,7 @@ export function SalesManagerMyDay() {
                               Chase {it.officerId} · {it.untouched ? `${it.untouched} company leads untouched over 72h` : `${it.followups} overdue follow-ups`}
                             </div>
                             <div className="item-reason">
-                              {it.untouched ? `Also ${it.followups} overdue follow-ups` : `Oldest overdue ${ageLabel(NOW - it.oldest)}`}
+                              {it.untouched ? `Also ${it.followups} overdue follow-ups · 72h is a placeholder threshold` : `Oldest overdue ${ageLabel(NOW - it.oldest)}`}
                             </div>
                           </button>
                           <Button kind="ghost" size="sm" onClick={() => it.tasks.forEach((t) => skip(t.id))}>
@@ -144,18 +152,16 @@ export function SalesManagerMyDay() {
 
       <section ref={listRef} style={{ scrollMarginTop: '4rem' }}>
         <h2 className="section-title">Everything else on your desk</h2>
-        <Tabs
-          selectedIndex={tab}
-          onChange={({ selectedIndex }: { selectedIndex: number }) => {
-            setTab(selectedIndex);
+        <p className="helper-line">Every open task, oldest first. Pipeline lists cases, so its counts are cases, not tasks.</p>
+        <PlainTabs
+          label="Desk list"
+          tabs={[`All tasks (${forceEmpty ? 0 : open.length})`, `Done (${done.length})`]}
+          selected={tab}
+          onChange={(i) => {
+            setTab(i);
             setPage(1);
           }}
-        >
-          <TabList aria-label="Desk list">
-            <Tab>All ({forceEmpty ? 0 : open.length})</Tab>
-            <Tab>Done ({done.length})</Tab>
-          </TabList>
-        </Tabs>
+        />
         {catFilter && (
           <div className="drill-tags" style={{ marginTop: '1rem' }}>
             <DismissibleTag type="blue" text={`Showing: ${catTitle(catFilter)}`} onClose={() => setCatFilter(null)} />

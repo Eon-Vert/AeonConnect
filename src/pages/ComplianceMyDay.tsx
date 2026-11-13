@@ -1,10 +1,10 @@
-import { Dropdown, Tab, TabList, Tabs } from '@carbon/react';
+import { Dropdown } from '@carbon/react';
 import { useMemo, useState } from 'react';
 import type { Case } from '../domain/types';
 import { checkpointOf } from '../domain/rules';
 import { useStore } from '../state/store';
 import { CaseTable } from '../components/CaseTable';
-import { ListStates, PageHeader, useListStatus } from '../components/common';
+import { ListStates, PageHeader, useListStatus, PlainTabs } from '../components/common';
 
 type Opt = { id: string; label: string };
 const CHECKPOINTS: Opt[] = [
@@ -28,9 +28,10 @@ const PRODUCTS: Opt[] = [
   { id: 'loan', label: 'Personal loan' },
 ];
 
-const isToCheck = (c: Case) => !c.archived && ((c.stage === 'pre_compliance' && !c.checks.pre) || (c.stage === 'post_compliance' && !c.checks.post));
+/** My Day is the Mawarid desk (the header says so); DIB has no Pre-Compliance stage */
+const isToCheck = (c: Case) => c.bank === 'MAWARID' && !c.archived && ((c.stage === 'pre_compliance' && !c.checks.pre) || (c.stage === 'post_compliance' && !c.checks.post));
 /** checked by compliance and still sitting at that checkpoint, or passed recently */
-const isChecked = (c: Case) => !c.archived && !isToCheck(c) && (!!c.checks.pre || !!c.checks.post) && !['booked', 'declined', 'back_out'].includes(c.stage);
+const isChecked = (c: Case) => c.bank === 'MAWARID' && !c.archived && !isToCheck(c) && (!!c.checks.pre || !!c.checks.post) && !['booked', 'declined', 'back_out'].includes(c.stage);
 
 export function ComplianceMyDay() {
   const cases = useStore((s) => s.cases);
@@ -79,18 +80,15 @@ export function ComplianceMyDay() {
   return (
     <div className="page">
       <PageHeader title="My Day" subtitle="Compliance Officer · Mawarid" right={<span className="desk-count">{forceEmpty ? 0 : toCheck.length} to check</span>} />
-      <Tabs
-        selectedIndex={tab}
-        onChange={({ selectedIndex }: { selectedIndex: number }) => {
-          setTab(selectedIndex);
+      <PlainTabs
+        label="Compliance queues"
+        tabs={[`To check (${forceEmpty ? 0 : toCheck.length})`, `Checked (${forceEmpty ? 0 : checked.length})`]}
+        selected={tab}
+        onChange={(i) => {
+          setTab(i);
           setPage(1);
         }}
-      >
-        <TabList aria-label="Compliance queues" style={{ marginBottom: '1.5rem' }}>
-          <Tab>To check ({forceEmpty ? 0 : toCheck.length})</Tab>
-          <Tab>Checked ({forceEmpty ? 0 : checked.length})</Tab>
-        </TabList>
-      </Tabs>
+      />
       <div className="filter-row">
         {dd('cp', 'Checkpoint', CHECKPOINTS, cp, setCp)}
         {tab === 0 && dd('st', 'Status', STATUSES, st, setSt)}
